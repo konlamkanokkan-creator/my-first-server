@@ -1,23 +1,111 @@
-// 1. เรียกใชงาน Module ที่ชื่อวา 'http' ซึ่งเปนระบบพื้นฐานของ Node.js สําหรับทําเซิรฟ เวอร
- const http = require('http');
+// 1. เรียกใช้งาน Module 'http'
+const http = require('http');
 
- // 2. กําหนดชองทาง (Port) ที่เซิรฟเวอรจะใชสื่อสาร โดยใหใชของที่ Cloud กําหนดมา(process.env.PORT) ถาไมมีใหใช 3000
- const port = process.env.PORT || 3000;
+// 2. กำหนด Port
+const port = process.env.PORT || 3000;
 
- // 3. สรางเครื่องแมขาย (Server) ที่คอยรับคําขอ (req) และตอบกลับ (res)
- const server = http.createServer((req, res) => {
+// 3. สร้าง Server
+const server = http.createServer((req, res) => {
 
- // 3.1 ตั้งรหัสสถานะ 200 หมายถึง "ทํางานสําเร็จ (OK)"
- res.statusCode = 200;
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
 
- // 3.2 บอกเบราวเซอรของผูใชวา สิ่งที่สงกลับไปคือไฟลขอความแบบ HTML และรองรับภาษาไทย (utf-8)
- res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.end(`
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kamisama Kiss Theme</title>
 
-// 3.3 สงขอมูลหนาเว็บกลับไปหาผูใช (*** ใหนักศึกษาแกชื่อ-นามสกุลตรงนี้ ***)
-res.end('<h1>สวัสดีครัช! นี่คือ Web Server ของ นางสาวกนกกาญ๗น์ คนล่ำ รหัสนักศึกษา 69319010173 </h1><p>เครื่องแม่ข่ายทํางานปกติบนระบบ Railway แล้วครัชผม!</p>');
- });
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
 
- // 4. สั่งใหเซิรฟเวอรเริ่มตนเปดรับฟงการเชื่อมตอตาม Port ที่กําหนดไว
- server.listen(port, () => {
- console.log(`Server is running! เครื่องแม่ข่ายเปิดทํางานแล้วที่ช่องทาง: ${port}`);
- });
+body{
+    font-family: "Sarabun", sans-serif;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background-image:url("https://images.alphacoders.com/519/519182.jpg");
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
+}
+
+.overlay{
+    background:rgba(255,255,255,0.75);
+    padding:40px;
+    border-radius:20px;
+    text-align:center;
+    width:80%;
+    max-width:700px;
+
+    box-shadow:0 0 25px rgba(0,0,0,.4);
+}
+
+h1{
+    color:#d63384;
+    margin-bottom:20px;
+    font-size:40px;
+}
+
+h2{
+    color:#6f42c1;
+    margin-bottom:15px;
+}
+
+p{
+    font-size:20px;
+    color:#333;
+    line-height:1.8;
+}
+
+.footer{
+    margin-top:25px;
+    color:#444;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="overlay">
+
+<h1>🌸 Kamisama Kiss 🌸</h1>
+
+<h2>Web Server Node.js</h2>
+
+<p>
+สวัสดีครับ!<br><br>
+
+นี่คือ Web Server ของ<br>
+
+<b>นางสาวกนกกาญจน์ คนล่ำ</b><br>
+
+รหัสนักศึกษา <b>69319010173</b><br><br>
+
+เครื่องแม่ข่ายทำงานปกติบนระบบ Railway แล้วครับ
+</p>
+
+<div class="footer">
+สร้างด้วย Node.js + HTML + CSS
+</div>
+
+</div>
+
+</body>
+</html>
+`);
+});
+
+// 4. เปิดใช้งาน Server
+server.listen(port, () => {
+    console.log(`Server is running! เครื่องแม่ข่ายเปิดทำงานแล้วที่ช่องทาง: ${port}`);
+});
