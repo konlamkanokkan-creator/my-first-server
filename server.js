@@ -36,19 +36,14 @@ const server = http.createServer((req, res) => {
 html,body{height:100%}
 body{
   font-family: 'Inter', 'Noto Sans Thai', Arial, sans-serif;
-  /* background changing to moon surface */
-  background-color: var(--bg-deep-space);
-  background-image: 
-    radial-gradient(circle at 50% 120%, var(--moon-rock), transparent 70%),
-    radial-gradient(circle at 50% 120%, var(--moon-dust), transparent 80%),
-    radial-gradient(2px 2px at 20px 30px, var(--star-white), rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 40px 70px, var(--star-white), rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 50px 160px, var(--star-white), rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 90px 110px, var(--star-white), rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 110px 210px, var(--star-white), rgba(0,0,0,0));
-  background-size: auto, auto, 20px 20px, 40px 40px, 50px 50px, 90px 90px, 110px 110px;
-  background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat;
+  
+  /* ใส่รูปภาพพื้นหลังเคลื่อนไหว (GIF) ตามที่ขอ และปรับแต่งครอบคลุมหน้าจอ */
+  background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_s6hOgdhSzP9V1VsZM3_DdSNL4SmqCHG_5MngSuhuA813ZlW5rNRbsZo&s=10');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   background-attachment: fixed;
+  
   color: #d4e4f7;
   display:flex;
   align-items:center;
@@ -56,6 +51,17 @@ body{
   padding:40px;
   position: relative;
   overflow: hidden;
+}
+
+/* Overlay เพื่อช่วยเพิ่มมิติให้ตัวบอร์ดอ่านง่ายขึ้นบนพื้นหลังเคลื่อนไหว */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: radial-gradient(circle at center, rgba(5, 7, 20, 0.2) 0%, rgba(5, 7, 20, 0.6) 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* Shooting star background animation */
@@ -79,33 +85,18 @@ body::before {
   100% { transform: translateY(100%) translateX(-100%); }
 }
 
-/* Floating moon dust animation */
-body::after {
-  content: '';
-  position: fixed;
-  top: -50px; left: -50px;
-  width: calc(100% + 100px); height: calc(100% + 100px);
-  background-image: radial-gradient(circle at center, rgba(157, 163, 175, 0.05) 0.5px, transparent 1px);
-  background-size: 3px 3px;
-  animation: floatDust 20s linear infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-@keyframes floatDust {
-  0% { transform: translate(0, 0); }
-  100% { transform: translate(50px, 50px); }
-}
-
 .scene{
   position:relative;
   width:960px;
   max-width:95%;
   border-radius:20px;
   overflow:hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(75, 158, 255, 0.15);
-  background: linear-gradient(135deg, rgba(20, 30, 60, 0.8), rgba(60, 40, 100, 0.7));
-  border: 1px solid rgba(232, 212, 184, 0.15);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(75, 158, 255, 0.2);
+  /* เพิ่ม Blur ด้านหลังเพื่อให้กลมกลืนกับพื้นหลังใหม่ที่เป็นรูปภาพเคลื่อนไหว */
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(46, 16, 101, 0.75));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 1;
 }
 
@@ -114,8 +105,8 @@ body::after {
   display:flex;
   gap:20px;
   align-items:center;
-  background: linear-gradient(90deg, rgba(139, 95, 191, 0.1), rgba(74, 158, 255, 0.08));
-  border-bottom: 1px solid rgba(232, 212, 184, 0.1);
+  background: linear-gradient(90deg, rgba(139, 95, 191, 0.15), rgba(74, 158, 255, 0.1));
+  border-bottom: 1px solid rgba(232, 212, 184, 0.15);
 }
 
 .logo{
@@ -149,11 +140,10 @@ body::after {
 
 .card{
   flex:1;
-  background: linear-gradient(135deg, rgba(74, 158, 255, 0.05), rgba(139, 95, 191, 0.05));
+  background: rgba(255, 255, 255, 0.04);
   border-radius:14px;padding:24px;position:relative;
   min-height:260px;
-  border: 1px solid rgba(232, 212, 184, 0.08);
-  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .card h2{color:var(--nebula-cyan);margin-bottom:8px;font-size:20px}
@@ -167,8 +157,8 @@ body::after {
 }
 
 .footer{
-  padding:18px 36px;background:linear-gradient(0deg, rgba(74, 158, 255, 0.05), rgba(139, 95, 191, 0.03));
-  border-top:1px solid rgba(232, 212, 184, 0.1);color:#b8d4ff;font-size:14px;text-align:center;
+  padding:18px 36px;background:linear-gradient(0deg, rgba(74, 158, 255, 0.08), rgba(139, 95, 191, 0.05));
+  border-top:1px solid rgba(232, 212, 184, 0.15);color:#b8d4ff;font-size:14px;text-align:center;
 }
 
 /* Moon ornaments */
