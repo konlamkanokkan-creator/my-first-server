@@ -16,13 +16,15 @@ const server = http.createServer((req, res) => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Outer Space & Moon Theme Web Server</title>
+<title>Moon Surface & Deep Space Theme Web Server</title>
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap');
 
 :root{
-  --bg-deep-space: #0a0e27; /* deep space blue */
+  --bg-deep-space: #050714; /* darker deep space */
+  --moon-dust: #9da3af; /* moon surface dust */
+  --moon-rock: #6c717c; /* moon surface rock */
   --moon-light: #e8d4b8; /* moon glow */
   --star-white: #f0f0f0;
   --nebula-purple: #8b5fbf;
@@ -34,10 +36,19 @@ const server = http.createServer((req, res) => {
 html,body{height:100%}
 body{
   font-family: 'Inter', 'Noto Sans Thai', Arial, sans-serif;
-  background: 
-    radial-gradient(circle at 15% 25%, rgba(75, 158, 255, 0.1), transparent 25%),
-    radial-gradient(circle at 85% 20%, rgba(139, 95, 191, 0.12), transparent 30%),
-    linear-gradient(180deg, #0a0e27 0%, #0f1535 50%, #14192f 100%);
+  /* background changing to moon surface */
+  background-color: var(--bg-deep-space);
+  background-image: 
+    radial-gradient(circle at 50% 120%, var(--moon-rock), transparent 70%),
+    radial-gradient(circle at 50% 120%, var(--moon-dust), transparent 80%),
+    radial-gradient(2px 2px at 20px 30px, var(--star-white), rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 40px 70px, var(--star-white), rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 50px 160px, var(--star-white), rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 90px 110px, var(--star-white), rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 110px 210px, var(--star-white), rgba(0,0,0,0));
+  background-size: auto, auto, 20px 20px, 40px 40px, 50px 50px, 90px 90px, 110px 110px;
+  background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat;
+  background-attachment: fixed;
   color: #d4e4f7;
   display:flex;
   align-items:center;
@@ -47,32 +58,43 @@ body{
   overflow: hidden;
 }
 
-/* Animated stars background */
+/* Shooting star background animation */
 body::before {
   content: '';
   position: fixed;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   background-image: 
-    radial-gradient(2px 2px at 20% 30%, white, rgba(255,255,255,0)),
-    radial-gradient(2px 2px at 60% 70%, white, rgba(255,255,255,0)),
-    radial-gradient(1px 1px at 50% 50%, white, rgba(255,255,255,0)),
-    radial-gradient(1px 1px at 80% 10%, white, rgba(255,255,255,0)),
-    radial-gradient(2px 2px at 90% 60%, white, rgba(255,255,255,0)),
-    radial-gradient(1px 1px at 30% 80%, white, rgba(255,255,255,0)),
-    radial-gradient(1px 1px at 10% 60%, white, rgba(255,255,255,0));
-  background-repeat: repeat;
-  background-size: 200% 200%;
-  animation: twinkle 5s ease-in-out infinite;
+    radial-gradient(2px 2px at 10% 10%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 90% 90%, rgba(255, 255, 255, 0.7), transparent);
+  background-size: 100% 100%;
+  animation: shootingStar 10s linear infinite;
   pointer-events: none;
   z-index: 0;
 }
 
-@keyframes twinkle {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+@keyframes shootingStar {
+  0% { transform: translateY(-100%) translateX(100%); }
+  10% { transform: translateY(100%) translateX(-100%); }
+  100% { transform: translateY(100%) translateX(-100%); }
+}
+
+/* Floating moon dust animation */
+body::after {
+  content: '';
+  position: fixed;
+  top: -50px; left: -50px;
+  width: calc(100% + 100px); height: calc(100% + 100px);
+  background-image: radial-gradient(circle at center, rgba(157, 163, 175, 0.05) 0.5px, transparent 1px);
+  background-size: 3px 3px;
+  animation: floatDust 20s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes floatDust {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(50px, 50px); }
 }
 
 .scene{
@@ -82,7 +104,7 @@ body::before {
   border-radius:20px;
   overflow:hidden;
   box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(75, 158, 255, 0.15);
-  background: linear-gradient(135deg, rgba(20, 30, 60, 0.7), rgba(60, 40, 100, 0.6));
+  background: linear-gradient(135deg, rgba(20, 30, 60, 0.8), rgba(60, 40, 100, 0.7));
   border: 1px solid rgba(232, 212, 184, 0.15);
   z-index: 1;
 }
@@ -157,7 +179,13 @@ body::before {
 }
 
 .stars-orbit{
-  position:absolute;right:20px;top:20px;opacity:0.15;filter:blur(0.4px)
+  position:absolute;right:20px;top:20px;opacity:0.15;filter:blur(0.4px);
+  animation: rotation 15s linear infinite;
+}
+
+@keyframes rotation {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* Responsive */
@@ -190,7 +218,7 @@ body::before {
     <div class="logo">🌙</div>
     <div class="title">
       <h1>OUTER SPACE & MOON — CELESTIAL SERVER</h1>
-      <p>ธีม: อวกาศลึก จันทรา และดาว — แสดงสถานะเครื่องแม่ข่ายจากห้องดูดาว</p>
+      <p>ธีม: พื้นผิวดวงจันทร์ อวกาศลึก และลูกเล่นมา — แสดงสถานะเครื่องแม่ข่ายจากห้องดูดาว</p>
     </div>
     <div style="text-align:right">
       <div style="font-size:12px;color:#b8d4ff">Server</div>
@@ -200,10 +228,10 @@ body::before {
 
   <div class="main">
     <div class="card">
-      <h2>🚀 ยินดีต้อนรับสู่อวกาศ</h2>
+      <h2>🚀 ยินดีต้อนรับสู่สถานีจันทรา</h2>
       <p>
-        สวัสดีครับ/ค่ะ — นี่คือ Web Server ในธีมอวกาศและจันทรา
-        เหมือนกับการสำรวจจักรวาลอันกว้างใหญ่ที่ประดับไปด้วยดาวเบิกบาน
+        สวัสดีครับ/ค่ะ — นี่คือ Web Server ในธีมพื้นผิวดวงจันทร์และอวกาศ
+        สัมผัสบรรยากาศการสำรวจจักรวาลอันกว้างใหญ่ บนพื้นผิวอันลึกลับของจันทรา
       </p>
 
       <p style="margin-top:12px">
@@ -223,9 +251,9 @@ body::before {
     </div>
   </div>
 
-  <div class="footer">🌌 Space • Stars • Moon — Celestial inspired UI 🌠</div>
+  <div class="footer">🌌 Space • Stars • Moon Surface — Celestial inspired UI 🌠</div>
 
-  <!-- Moon SVG decoration -->
+  <!-- Moon SVG decoration with rotation animation -->
   <svg class="stars-orbit" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;right:18px;top:18px;opacity:0.2">
     <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(232, 212, 184, 0.5)" stroke-width="0.5" />
     <circle cx="32" cy="8" r="3" fill="rgba(240, 240, 240, 0.9)" />
@@ -254,7 +282,9 @@ body::before {
   const messages = [
     '🌙 จันทรา: ชัดเจน • ดาว: มองเห็นได้ ✔️',
     '🛰️ ดาวเทียม: โคจรปกติ • สัญญาณ: เข้มแข็ง',
-    '🚀 ระบบ: พร้อมใช้งาน — อำนาจจากอวกาศอันลึกลับ'
+    '🚀 ระบบ: พร้อมใช้งาน — อำนาจจากอวกาศอันลึกลับ',
+    '☄️ ตรวจพบดาวตก — สวยงามและปลอดภัย',
+    '🌫️ ฝุ่นดวงจันทร์: ฟุ้งกระจาย — รักษาความสะอาดอุปกรณ์'
   ];
   let i = 0;
   status.textContent = messages[0];
