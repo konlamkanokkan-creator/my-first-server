@@ -13,14 +13,14 @@ const pool = new Pool({
 const port = process.env.PORT || 3000;
 
 const server = http.createServer(async (req, res) => {
-  res.statusCode = 200;
+  // ย้ายการกำหนด Header และ Status Code ให้เป็นสัดส่วน
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
 
+  let client;
   try {
     // 3. ขอเชื่อมต่อและส่งคำสั่ง SQL ไปดึงข้อมูลจากตาราง students
-    const client = await pool.connect();
+    client = await pool.connect();
     const result = await client.query('SELECT * FROM students');
-    client.release(); // คืนการเชื่อมต่อเมื่อใช้งานเสร็จ
 
     // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ธีมดวงจันทร์ และ JavaScript สุ่มดวง
     let html = `
@@ -158,7 +158,7 @@ const server = http.createServer(async (req, res) => {
                         <th>ชื่อ-นามสกุล</th>
                     </tr>
                 </thead>
-                <tbody>;
+                <tbody>`;
 
     // วนลูปนำข้อมูลจากฐานข้อมูลมาแสดงในตาราง
     result.rows.forEach(row => {
@@ -206,10 +206,17 @@ const server = http.createServer(async (req, res) => {
     </body>
     </html>`;
 
+    res.statusCode = 200;
     res.end(html);
   } catch (err) {
-    console.error(err);
+    console.error("Database or Server Error:", err);
+    res.statusCode = 500;
     res.end(`<h1>เกิดข้อผิดพลาด!</h1><p>${err.message}</p>`);
+  } finally {
+    // ใช้ finally เพื่อการันตีว่า client จะถูกคืนเข้า Pool เสมอ แม้ว่าจะเกิด error ก็ตาม
+    if (client) {
+      client.release();
+    }
   }
 });
 
