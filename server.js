@@ -16,9 +16,9 @@ const client = await pool.connect();
 const result = await client.query('SELECT * FROM students');
 client.release(); // คนืการเชื่อมตอเมื่อใชงานเสร็จ
 // 4. นําขอมูลที่ได(result.rows) มาประกอบเปนตาราง HTML
-let html = `<h1>ฐานข้อมูลนักศึกษา (ทดสอบการเชื่อมต่อ)</h1>`;
+let html = `<h1>ฐานขอมูลนักศึกษา (ทดสอบการเชื่อมตอ)</h1>`;
 html += `<table border="1" cellpadding="10">`;
-html += `<tr><th>66319010173</th><th>กนกกาญจน์ คนล่ำ</th></tr>`;
+html += `<tr><th>693198010176</th><th>กนกกาญจน์ คนล่ำ</th></tr>`;
 // วนลูปนําขอมูลแตละแถวมาแสดง
 result.rows.forEach(row => {
 html += `<tr><td>${row.student_id}</td><td>${row.student_name}</td></tr>`;
@@ -28,7 +28,7 @@ res.end(html);
 } catch (err) {
 // กรณเีชื่อมตอไมไดหรือเขียนชื่อตารางผิด
 console.error(err);
-res.end(`<h1>เกิดข้อผิดพลาด!</h1><p>${err.message}</p>`);
+res.end(`<h1>เกิดขอผิดพลาด!</h1><p>${err.message}</p>`);
 }
 });
 server.listen(port, () => {
