@@ -154,15 +154,15 @@ const server = http.createServer(async (req, res) => {
             <table>
                 <thead>
                     <tr>
-                        <th>รหัสนักศึกษา</th>
-                        <th>ชื่อ-นามสกุล</th>
+                        <th>69319010173</th>
+                        <th>กนกกาญจน์ คนล่ำ</th>
                     </tr>
                 </thead>
                 <tbody>`;
 
     // วนลูปนำข้อมูลจากฐานข้อมูลมาแสดงในตาราง
     result.rows.forEach(row => {
-      html += `<tr><td>${row.student_id}</td><td>${row.student_name}</td></tr>`;
+      html += `<tr><td>${row.students_id}</td><td>${row.stude}</td></tr>`;
     });
 
     // ปิดท้ายตาราง และใส่โค้ดเกมเสี่ยงดวงเข้าไปในฝั่ง Client
