@@ -28,11 +28,11 @@ const server = http.createServer(async (req, res) => {
     html += `<table border="1" cellpadding="10" style="border-collapse: collapse;">`;
     
     // แก้ไขตรงนี้: เปลี่ยนหัวตาราง (TH) ให้เป็นชื่อหัวข้อ ไม่ใช่ข้อมูลนักศึกษาตัวอย่าง
-    html += `<tr><th>รหัสนักศึกษา</th><th>ชื่อ-นามสกุล</th></tr>`;
+    html += `<tr><th>69319010173</th><th>กนกกาญจน์ คนล่ำ</th></tr>`;
     
     // วนลูปนำข้อมูลแต่ละแถวมาแสดง
     result.rows.forEach(row => {
-      html += `<tr><td>${row.student_id}</td><td>${row.student_name}</td></tr>`;
+      html += `<tr><td>${row.students_id}</td><td>${row.stude}</td></tr>`;
     });
     
     html += `</table>`;
