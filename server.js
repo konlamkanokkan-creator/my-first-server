@@ -1,293 +1,218 @@
-// 1. เรียกใช้งาน Module 'http'
 const http = require('http');
+// 1. เรียกใช้งาน Pool จากไลบรารี pg สำหรับจัดการการเชื่อมต่อฐานข้อมูล
+const { Pool } = require('pg');
 
-// 2. กำหนด Port
-const port = process.env.PORT || 3000;
-
-// 3. สร้าง Web Server
-const server = http.createServer((req, res) => {
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-
-    res.end(`<!DOCTYPE html>
-<html lang="th">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Moon Surface & Deep Space Theme Web Server</title>
-
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap');
-
-:root{
-  --bg-deep-space: #050714;
-  --moon-dust: #9da3af;
-  --moon-rock: #6c717c;
-  --moon-light: #e8d4b8;
-  --star-white: #f0f0f0;
-  --nebula-purple: #8b5fbf;
-  --nebula-cyan: #4a9eff;
-  --accent-gold: #ffd700;
-}
-
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{
-  font-family: 'Inter', 'Noto Sans Thai', Arial, sans-serif;
-  background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_s6hOgdhSzP9V1VsZM3_DdSNL4SmqCHG_5MngSuhuA813ZlW5rNRbsZo&s=10');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  color: #d4e4f7;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:40px;
-  position: relative;
-  overflow: hidden;
-}
-
-body::after {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at center, rgba(5, 7, 20, 0.2) 0%, rgba(5, 7, 20, 0.6) 100%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    radial-gradient(2px 2px at 10% 10%, rgba(255, 255, 255, 0.8), transparent),
-    radial-gradient(1px 1px at 90% 90%, rgba(255, 255, 255, 0.7), transparent);
-  background-size: 100% 100%;
-  animation: shootingStar 10s linear infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-@keyframes shootingStar {
-  0% { transform: translateY(-100%) translateX(100%); }
-  10% { transform: translateY(100%) translateX(-100%); }
-  100% { transform: translateY(100%) translateX(-100%); }
-}
-
-.scene{
-  position:relative;
-  width:960px;
-  max-width:95%;
-  border-radius:20px;
-  overflow:hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(75, 158, 255, 0.2);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(46, 16, 101, 0.75));
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  z-index: 1;
-}
-
-.header{
-  padding:28px 36px;
-  display:flex;
-  gap:20px;
-  align-items:center;
-  background: linear-gradient(90deg, rgba(139, 95, 191, 0.15), rgba(74, 158, 255, 0.1));
-  border-bottom: 1px solid rgba(232, 212, 184, 0.15);
-}
-
-.logo{
-  width:84px;height:84px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  background: radial-gradient(circle at 35% 35%, #ffd700, #d4af37);
-  box-shadow: inset 0 -8px 20px rgba(0,0,0,0.3), 0 0 30px rgba(255, 215, 0, 0.4);
-  font-weight:800;color:#2a2a2a;font-size:36px;
-  position: relative;
-}
-
-.logo::after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), transparent);
-  pointer-events: none;
-}
-
-.title{
-  flex:1;
-}
-.title h1{font-size:22px;color:var(--moon-light);letter-spacing:1px}
-.title p{color:#b8d4ff;opacity:0.9;margin-top:6px}
-
-.main{
-  display:flex;gap:24px;padding:34px;
-}
-
-.card{
-  flex:1;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius:14px;padding:24px;position:relative;
-  min-height:260px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.card h2{color:var(--nebula-cyan);margin-bottom:8px;font-size:20px}
-.card p{color:#d4e4f7;line-height:1.7}
-
-.badge{
-  display:inline-block;padding:10px 16px;border-radius:999px;
-  background: linear-gradient(90deg, var(--nebula-cyan), var(--nebula-purple));
-  color:#0a0e27;font-weight:700;margin-top:18px;
-  box-shadow: 0 4px 15px rgba(74, 158, 255, 0.3);
-}
-
-.footer{
-  padding:18px 36px;
-  background:linear-gradient(0deg, rgba(74, 158, 255, 0.08), rgba(139, 95, 191, 0.05));
-  border-top:1px solid rgba(232, 212, 184, 0.15);
-  color:#b8d4ff;
-  font-size:14px;
-  text-align:center;
-}
-
-.moon-glow{
-  position:absolute;right:-30px;top:-30px;width:200px;height:200px;
-  border-radius:50%;
-  background:radial-gradient(circle at 35% 35%, rgba(232, 212, 184, 0.08), transparent);
-  opacity:0.6;
-  filter:blur(20px);
-}
-
-.stars-orbit{
-  position:absolute;right:20px;top:20px;opacity:0.15;filter:blur(0.4px);
-  animation: rotation 15s linear infinite;
-}
-
-@keyframes rotation {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-.satellite{
-  position:absolute;right:40px;top:40px;width:100px;opacity:0.8;
-  transform-origin:center bottom;
-  animation:orbit 12s linear infinite;
-}
-
-@keyframes orbit{
-  0%{transform:translateX(0) translateY(0) rotate(0deg)}
-  25%{transform:translateX(20px) translateY(-15px) rotate(90deg)}
-  50%{transform:translateX(0) translateY(-30px) rotate(180deg)}
-  75%{transform:translateX(-20px) translateY(-15px) rotate(270deg)}
-  100%{transform:translateX(0) translateY(0) rotate(360deg)}
-}
-
-@media (max-width:760px){
-  .main{flex-direction:column}
-  .logo{width:64px;height:64px;font-size:28px}
-}
-</style>
-</head>
-<body>
-
-<div class="moon-glow"></div>
-
-<div class="scene" role="main">
-  <div class="header">
-    <div class="logo">🌙</div>
-    <div class="title">
-      <h1>OUTER SPACE & MOON — CELESTIAL SERVER</h1>
-      <p>ธีม: พื้นผิวดวงจันทร์ อวกาศลึก และลูกเล่นมา</p>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:12px;color:#b8d4ff">Server</div>
-      <div style="font-weight:700;color:var(--moon-light)">Node.js • Active</div>
-    </div>
-  </div>
-
-  <div class="main">
-    <div class="card">
-      <h2>🚀 ยินดีต้อนรับสู่สถานีจันทรา</h2>
-      <p>
-        สวัสดีครับ/ค่ะ — นี่คือ Web Server ในธีมพื้นผิวดวงจันทร์และอวกาศ 
-        สัมผัสบรรยากาศการสำรวจจักรวาลอันกว้างใหญ่
-      </p>
-
-      <p style="margin-top:12px">
-        <strong>นางสาวกนกกาญจน์ คนล่ำ</strong><br>
-        รหัสนักศึกษา <strong>69319010173</strong>
-      </p>
-
-      <div class="badge">✨ Powered by Node.js</div>
-    </div>
-
-    <div class="card">
-      <h2>🛰️ สถานะการบินของดาวเทียม</h2>
-      <p id="statusText">กำลังตรวจสอบระบบ...</p>
-      <div style="margin-top:12px;font-size:13px;color:#b8d4ff">
-        เครื่องแม่ข่ายโคจรบนระบบ Railway ด้วยความสมบูรณ์
-      </div>
-    </div>
-  </div>
-
-  <div class="footer">🌌 Space • Stars • Moon Surface — Celestial inspired UI 🌠</div>
-
-  <svg class="stars-orbit" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;right:18px;top:18px;opacity:0.2">
-    <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(232, 212, 184, 0.5)" stroke-width="0.5" />
-    <circle cx="32" cy="8" r="3" fill="rgba(240, 240, 240, 0.9)" />
-    <circle cx="50" cy="24" r="2" fill="rgba(240, 240, 240, 0.8)" />
-    <circle cx="56" cy="42" r="2.5" fill="rgba(240, 240, 240, 0.85)" />
-    <circle cx="32" cy="56" r="3" fill="rgba(240, 240, 240, 0.9)" />
-    <circle cx="14" cy="42" r="2" fill="rgba(240, 240, 240, 0.8)" />
-    <circle cx="8" cy="24" r="2.5" fill="rgba(240, 240, 240, 0.85)" />
-  </svg>
-
-  <svg class="satellite" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <g>
-      <rect x="40" y="40" width="20" height="20" fill="#4a9eff" opacity="0.8" rx="2" />
-      <rect x="35" y="45" width="30" height="10" fill="#8b5fbf" opacity="0.6" rx="1" />
-      <circle cx="50" cy="50" r="4" fill="#ffd700" />
-    </g>
-  </svg>
-</div>
-
-<script>
-(function(){
-  const status = document.getElementById('statusText');
-  const messages = [
-    '🌙 จันทรา: ชัดเจน • ดาว: มองเห็นได้ ✔️',
-    '🛰️ ดาวเทียม: โคจรปกติ • สัญญาณ: เข้มแข็ง',
-    '🚀 ระบบ: พร้อมใช้งาน — อำนาจจากอวกาศอันลึกลับ',
-    '☄️ ตรวจพบดาวตก — สวยงามและปลอดภัย',
-    '🌫️ ฝุ่นดวงจันทร์: ฟุ้งกระจาย — รักษาความสะอาดอุปกรณ์'
-  ];
-  let i = 0;
-  status.textContent = messages[0];
-  setInterval(()=>{
-    i = (i+1) % messages.length;
-    status.textContent = messages[i];
-  }, 3500);
-})();
-</script>
-
-</body>
-</html>`);
-
+// 2. ตั้งค่าการเชื่อมต่อ โดยดึง URL มาจาก Environment Variable ของ Railway
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
-// 4. เปิด Server
+const port = process.env.PORT || 3000;
+
+const server = http.createServer(async (req, res) => {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+
+  try {
+    // 3. ขอเชื่อมต่อและส่งคำสั่ง SQL ไปดึงข้อมูลจากตาราง students
+    const client = await pool.connect();
+    const result = await client.query('SELECT * FROM students');
+    client.release(); // คืนการเชื่อมต่อเมื่อใช้งานเสร็จ
+
+    // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ธีมดวงจันทร์ และ JavaScript สุ่มดวง
+    let html = `
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ฐานข้อมูลนักศึกษาใต้แสงจันทร์</title>
+        <style>
+            /* ธีมท้องฟ้ากลางคืน */
+            body {
+                background: linear-gradient(180deg, #0b132b, #1c2541, #3a506b);
+                color: #e0e1dd;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                min-height: 100vh;
+                overflow-x: hidden;
+                position: relative;
+            }
+
+            /* ลูกเล่นดวงจันทร์เรืองแสง */
+            .moon {
+                width: 100px;
+                height: 100px;
+                background: #fbf8cc;
+                border-radius: 50%;
+                box-shadow: 0 0 40px #fbf8cc, 0 0 80px rgba(251, 248, 204, 0.6);
+                margin: 20px 0;
+                animation: float 4s ease-in-out infinite;
+            }
+
+            @keyframes float {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-10px); }
+            }
+
+            h1 {
+                text-shadow: 0 0 10px rgba(255,255,255,0.5);
+                text-align: center;
+                color: #fbf8cc;
+            }
+
+            /* สไตล์ตารางสไตล์โปร่งแสงขอบมน */
+            .container {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+                padding: 25px;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                width: 90%;
+                max-width: 600px;
+                margin-bottom: 30px;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 15px;
+            }
+
+            th, td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            th {
+                color: #fbf8cc;
+                font-size: 1.1em;
+            }
+
+            tr:hover {
+                background: rgba(255, 255, 255, 0.05);
+            }
+
+            /* โซนกิจกรรมร่วมสนุกเสี่ยงทายดวง */
+            .game-box {
+                background: rgba(251, 248, 204, 0.15);
+                border: 2px dashed #fbf8cc;
+                border-radius: 15px;
+                padding: 20px;
+                text-align: center;
+                max-width: 600px;
+                width: 90%;
+                box-shadow: 0 0 20px rgba(251, 248, 204, 0.2);
+            }
+
+            .btn-predict {
+                background: #fbf8cc;
+                color: #0b132b;
+                border: none;
+                padding: 12px 25px;
+                font-size: 16px;
+                font-weight: bold;
+                border-radius: 25px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(251, 248, 204, 0.4);
+            }
+
+            .btn-predict:hover {
+                transform: scale(1.05);
+                box-shadow: 0 4px 25px rgba(251, 248, 204, 0.8);
+            }
+
+            #fortune-result {
+                margin-top: 15px;
+                font-size: 1.2em;
+                font-weight: bold;
+                color: #fbf8cc;
+                min-height: 30px;
+                transition: all 0.5s ease;
+            }
+        </style>
+    </head>
+    <body>
+
+        <!-- รูปดวงจันทร์ลอยได้ -->
+        <div class="moon"></div>
+
+        <h1>🌕 ฐานข้อมูลนักศึกษา (คืนพระจันทร์เต็มดวง) 🌕</h1>
+
+        <!-- ส่วนแสดงตารางข้อมูลนักศึกษา -->
+        <div class="container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>รหัสนักศึกษา</th>
+                        <th>ชื่อ-นามสกุล</th>
+                    </tr>
+                </thead>
+                <tbody>;
+
+    // วนลูปนำข้อมูลจากฐานข้อมูลมาแสดงในตาราง
+    result.rows.forEach(row => {
+      html += `<tr><td>${row.student_id}</td><td>${row.student_name}</td></tr>`;
+    });
+
+    // ปิดท้ายตาราง และใส่โค้ดเกมเสี่ยงดวงเข้าไปในฝั่ง Client
+    html += `
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ลูกเล่นร่วมสนุก: สุ่มคำทำนายใต้แสงจันทร์ -->
+        <div class="game-box">
+            <h3>🔮 มินิเกม: เสี่ยงทายดวงชะตานักศึกษาใต้แสงจันทร์ 🔮</h3>
+            <p>กดปุ่มเพื่อดูว่าพระจันทร์อยากบอกอะไรกับคุณในเทอมนี้?</p>
+            <button class="btn-predict" onclick="getFortune()">ขอกระซิบถามพระจันทร์</button>
+            <div id="fortune-result"></div>
+        </div>
+
+        <script>
+            // รายการคำทำนายกวนๆ สำหรับนักศึกษา
+            const fortunes = [
+                "🌕 พระจันทร์บอกว่า: เทอมนี้เกรด A จะพุ่งชนจนตั้งตัวไม่ทัน!",
+                "🌙 พระจันทร์บอกว่า: จะมีคนแอบมองคุณจากหน้าต่างห้องเรียนวิทยาศาสตร์",
+                "🌑 พระจันทร์มืดมิด: ช่วงนี้โค้ดจะรันผ่านในรอบเดียวแบบปาฏิหาริย์!",
+                "🔮 คำทำนายทายทัก: สัปดาห์หน้าจะได้ลาภปาก มีเพื่อนสายเปย์เลี้ยงชาบู",
+                "✨ ดวงของคุณวันนี้: พลังงานเต็มเปี่ยม อาจารย์สั่งงานปุ๊บ สมองโล่งปั๊บ (โล่งแบบไม่มีอะไรเลย)",
+                "🌟 ดวงเด่นคืนนี้: จะได้เจอเนื้อคู่... ในฝันคืนนี้แหละ นอนเถอะนะ",
+                "🦉 นกฮูกฝากบอก: ส่งงานตรงเวลา แล้วชีวิตจะราบรื่นอย่างเหลือเชื่อ!"
+            ];
+
+            function getFortune() {
+                const resultDiv = document.getElementById('fortune-result');
+                resultDiv.style.opacity = 0; // ทำเอฟเฟกต์แวบหายไปก่อนเปลี่ยนคำ
+                
+                setTimeout(() => {
+                    const randomIndex = Math.floor(Math.random() * fortunes.length);
+                    resultDiv.innerText = fortunes[randomIndex];
+                    resultDiv.style.opacity = 1;
+                }, 300);
+            }
+        </script>
+
+    </body>
+    </html>`;
+
+    res.end(html);
+  } catch (err) {
+    console.error(err);
+    res.end(`<h1>เกิดข้อผิดพลาด!</h1><p>${err.message}</p>`);
+  }
+});
+
 server.listen(port, () => {
-    console.log(`Server is running! เครื่องแม่ข่ายเปิดทำงานแล้วที่ช่องทาง: ${port}`);
+  console.log(`Server is running on port: ${port}`);
 });
