@@ -21,18 +21,18 @@ const server = http.createServer(async (req, res) => {
     client = await pool.connect();
     const result = await client.query('SELECT * FROM students');
 
-    // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ Dr.STONE และมินิเกมผสมสูตร Nital
+    // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ Dr.STONE และลำแสงกลายเป็นหิน
     let html = `
     <!DOCTYPE html>
     <html lang="th">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Kingdom of Science - Student Database</title>
+        <title>Kingdom of Science - Petrification Light</title>
         <style>
-            /* ธีมห้องทดลองวิทยาศาสตร์ Dr.STONE */
+            /* ธีมพื้นหลัง: ลำแสงกลายเป็นหิน (Petrification Ray Effect) */
             body {
-                background: linear-gradient(180deg, #0b1a0e, #132a13, #31572c);
+                background: #040d06;
                 color: #ecf39e;
                 font-family: 'Courier New', Courier, monospace, sans-serif;
                 margin: 0;
@@ -45,6 +45,62 @@ const server = http.createServer(async (req, res) => {
                 position: relative;
             }
 
+            /* ลำแสงการกลายเป็นหินแผ่รัศมีจากกึ่งกลาง */
+            body::before {
+                content: '';
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                width: 200vw;
+                height: 200vw;
+                transform: translate(-50%, -50%);
+                background: radial-gradient(
+                    circle,
+                    rgba(16, 185, 129, 0.45) 0%,
+                    rgba(16, 185, 129, 0.25) 25%,
+                    rgba(5, 46, 22, 0.6) 50%,
+                    rgba(4, 13, 6, 0.95) 85%
+                );
+                z-index: -2;
+                animation: petrifyPulse 4s ease-in-out infinite alternate;
+            }
+
+            /* วงคลื่นพลังงานลำแสงส่องสว่างเรืองแสง */
+            body::after {
+                content: '';
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: repeating-radial-gradient(
+                    circle at 50% 30%,
+                    transparent 0,
+                    rgba(16, 185, 129, 0.08) 20px,
+                    transparent 40px
+                );
+                z-index: -1;
+                pointer-events: none;
+                animation: waveExpand 6s linear infinite;
+            }
+
+            @keyframes petrifyPulse {
+                0% {
+                    transform: translate(-50%, -50%) scale(0.8);
+                    opacity: 0.7;
+                }
+                100% {
+                    transform: translate(-50%, -50%) scale(1.1);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes waveExpand {
+                0% { transform: scale(1); opacity: 0.3; }
+                50% { opacity: 0.8; }
+                100% { transform: scale(1.3); opacity: 0.1; }
+            }
+
             /* บีกเกอร์ทดลองเรืองแสง */
             .beaker {
                 width: 70px;
@@ -55,7 +111,7 @@ const server = http.createServer(async (req, res) => {
                 position: relative;
                 margin: 20px 0;
                 background: rgba(163, 177, 138, 0.1);
-                box-shadow: 0 0 20px #a3b18a, inset 0 0 15px #10b981;
+                box-shadow: 0 0 25px #10b981, inset 0 0 15px #10b981;
                 overflow: hidden;
             }
 
@@ -76,19 +132,19 @@ const server = http.createServer(async (req, res) => {
             }
 
             h1 {
-                text-shadow: 0 0 10px #10b981;
+                text-shadow: 0 0 15px #10b981, 0 0 30px #10b981;
                 text-align: center;
-                color: #10b981;
+                color: #ecf39e;
                 letter-spacing: 2px;
             }
 
             .container {
-                background: rgba(19, 42, 19, 0.7);
-                backdrop-filter: blur(8px);
+                background: rgba(10, 25, 14, 0.75);
+                backdrop-filter: blur(12px);
                 border-radius: 10px;
                 padding: 25px;
-                box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
-                border: 1px solid #a3b18a;
+                box-shadow: 0 0 30px rgba(16, 185, 129, 0.3), inset 0 0 15px rgba(16, 185, 129, 0.1);
+                border: 1px solid rgba(16, 185, 129, 0.4);
                 width: 90%;
                 max-width: 600px;
                 margin-bottom: 30px;
@@ -103,34 +159,36 @@ const server = http.createServer(async (req, res) => {
             th, td {
                 padding: 12px;
                 text-align: left;
-                border-bottom: 1px solid rgba(163, 177, 138, 0.2);
+                border-bottom: 1px solid rgba(16, 185, 129, 0.2);
             }
 
             th {
                 color: #10b981;
                 font-size: 1.1em;
                 text-transform: uppercase;
+                text-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
             }
 
             tr:hover {
-                background: rgba(16, 185, 129, 0.1);
+                background: rgba(16, 185, 129, 0.15);
             }
 
             .game-box {
-                background: rgba(49, 87, 44, 0.3);
+                background: rgba(10, 25, 14, 0.8);
+                backdrop-filter: blur(10px);
                 border: 2px dashed #10b981;
                 border-radius: 10px;
                 padding: 20px;
                 text-align: center;
                 max-width: 600px;
                 width: 90%;
-                box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+                box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
                 margin-bottom: 30px;
             }
 
             .btn-action {
                 background: #10b981;
-                color: #0b1a0e;
+                color: #040d06;
                 border: none;
                 padding: 12px 25px;
                 font-size: 16px;
@@ -138,14 +196,14 @@ const server = http.createServer(async (req, res) => {
                 border-radius: 5px;
                 cursor: pointer;
                 transition: all 0.3s ease;
-                box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+                box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
                 margin: 5px;
                 font-family: inherit;
             }
 
             .btn-action:hover {
                 transform: scale(1.05);
-                box-shadow: 0 0 20px rgba(16, 185, 129, 0.8);
+                box-shadow: 0 0 25px rgba(16, 185, 129, 0.9);
                 background: #34d399;
             }
 
@@ -157,7 +215,6 @@ const server = http.createServer(async (req, res) => {
                 min-height: 30px;
             }
 
-            /* สไตล์มินิเกมถอนคำสาปหินนก */
             .lab-controls {
                 display: flex;
                 flex-direction: column;
@@ -304,10 +361,10 @@ const server = http.createServer(async (req, res) => {
                 const bird = document.getElementById('bird');
                 const status = document.getElementById('revive-status');
 
-                // สูตรที่ถูกต้องตามเรื่อง Dr.STONE คือ Nitric Acid 30% + Alcohol 70% (ยอมให้คลาดเคลื่อนได้ +-2%)
+                // สูตรที่ถูกต้อง: Nitric Acid 30% + Alcohol 70% (+-2%)
                 if (nitric >= 28 && nitric <= 32 && alcohol >= 68 && alcohol <= 72) {
                     bird.className = "bird-stage bird-revived";
-                    bird.innerText = "🕊️"; // นกสลัดหินหลุดและบินได้!
+                    bird.innerText = "🕊️";
                     status.innerHTML = "<span style='color: #10b981;'>✨ สำเร็จ 10,000,000%! ชั้นหินปริแตก นกฟื้นคืนชีพแล้ว! ✨</span>";
                 } else {
                     bird.className = "bird-stage";
