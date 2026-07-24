@@ -491,6 +491,104 @@ const server = http.createServer(async (req, res) => {
                 min-height: 40px;
                 color: #ecf39e;
             }
+
+            /* ===== ESCAPE GAME STYLES ===== */
+            #game-arena {
+                width: 100%;
+                height: 500px;
+                background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+                border: 3px solid #10b981;
+                border-radius: 10px;
+                position: relative;
+                overflow: hidden;
+                margin: 15px 0;
+                box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+            }
+
+            .villain {
+                position: absolute;
+                font-size: 60px;
+                cursor: pointer;
+                animation: villainMove 3s infinite;
+            }
+
+            @keyframes villainMove {
+                0%, 100% { transform: translateX(0) rotate(-5deg); }
+                50% { transform: translateX(20px) rotate(5deg); }
+            }
+
+            .player {
+                position: absolute;
+                font-size: 50px;
+                left: 20px;
+                top: 50%;
+                transform: translateY(-50%);
+                animation: playerHop 0.5s ease-out;
+            }
+
+            @keyframes playerHop {
+                0% { transform: translateY(-50%); }
+                50% { transform: translateY(-150px); }
+                100% { transform: translateY(-50%); }
+            }
+
+            .obstacle {
+                position: absolute;
+                font-size: 40px;
+                width: 50px;
+                height: 50px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: obstacleMove 2s linear infinite;
+            }
+
+            @keyframes obstacleMove {
+                0% { transform: translateX(100%); }
+                100% { transform: translateX(-100%); }
+            }
+
+            #game-status {
+                font-size: 1.5em;
+                font-weight: bold;
+                margin: 15px 0;
+                min-height: 50px;
+                color: #ecf39e;
+                text-shadow: 0 0 10px #10b981;
+            }
+
+            .trophy-face {
+                font-size: 120px;
+                margin: 20px 0;
+                animation: trophyRotate 0.5s ease;
+            }
+
+            @keyframes trophyRotate {
+                0% { transform: scale(0) rotate(0deg); }
+                50% { transform: scale(1.2) rotate(10deg); }
+                100% { transform: scale(1) rotate(0deg); }
+            }
+
+            .winner-message {
+                font-size: 2em;
+                font-weight: bold;
+                color: #fbbf24;
+                text-shadow: 0 0 20px #fbbf24, 0 0 40px #10b981;
+                margin: 10px 0;
+                animation: winnerGlow 1s infinite alternate;
+            }
+
+            @keyframes winnerGlow {
+                0% { text-shadow: 0 0 10px #fbbf24; }
+                100% { text-shadow: 0 0 30px #fbbf24, 0 0 50px #10b981; }
+            }
+
+            .score-display {
+                font-size: 1.2em;
+                color: #10b981;
+                margin: 10px 0;
+                font-weight: bold;
+            }
         </style>
     </head>
     <body>
@@ -568,6 +666,31 @@ const server = http.createServer(async (req, res) => {
             <button class="btn-action" style="background: #a3b18a;" onclick="resetGame()">🔄 เริ่มใหม่</button>
         </div>
 
+        <!-- ลูกเล่นที่ 3: ESCAPE FROM VILLAIN GAME -->
+        <div class="game-box">
+            <h3>🏃 มินิเกม: หลบหนีวายร้าย 10,000,000% 🏃</h3>
+            <p>🎮 ผู้เล่นทุกคนช่วยกันหลบหนี! คลิกปุ่มชื่อของตัวเองให้ได้ 5 ครั้ง แล้วชนะถ้วยรางวัลหน้ามีมตลก! 🎪</p>
+            
+            <div id="game-arena">
+                <div class="villain" id="villain">🦹</div>
+                <div class="player" id="player">🏃</div>
+            </div>
+
+            <div id="game-status">🎮 เล่นด้านล่าง...</div>
+
+            <div id="escape-buttons" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0;">`;
+
+      // สร้างปุ่มสำหรับแต่ละคนในตาราง
+      result.rows.forEach(row => {
+        html += `<button class="btn-action" onclick="playerEscape('${row.stude}')" style="flex: 1; min-width: 150px; background: #8b5cf6;">🏃 ${row.stude}</button>`;
+      });
+
+      html += `
+            </div>
+
+            <button class="btn-action" onclick="resetEscapeGame()" style="width: 100%; background: #a3b18a;">🔄 เล่นใหม่</button>
+        </div>
+
         <!-- Modal สำหรับเพิ่มและแก้ไขรายชื่อ -->
         <div id="studentModal" class="modal">
             <div class="modal-content">
@@ -597,6 +720,136 @@ const server = http.createServer(async (req, res) => {
         </div>
 
         <script>
+            // === ESCAPE GAME STATE ===
+            let escapeCount = {};
+            const requiredEscapes = 5;
+
+            const funnyFaces = [
+                "😂", "🤣", "😆", "😁", "🤪", "😜", "🥸", "🤓", "😎", 
+                "🤡", "🎭", "🤠", "👑", "🏆", "🌟", "⭐", "✨", "💎",
+                "🤩", "😍", "🥰", "😋", "🍕", "🎉", "🎊", "🎈"
+            ];
+
+            function getRandomFace() {
+                return funnyFaces[Math.floor(Math.random() * funnyFaces.length)];
+            }
+
+            function playerEscape(playerName) {
+                const arena = document.getElementById('game-arena');
+                const status = document.getElementById('game-status');
+                
+                if (!escapeCount[playerName]) {
+                    escapeCount[playerName] = 0;
+                }
+
+                escapeCount[playerName]++;
+
+                // ทำให้ผู้เล่นเด้ง
+                const player = document.getElementById('player');
+                player.style.animation = 'none';
+                setTimeout(() => {
+                    player.style.animation = 'playerHop 0.5s ease-out';
+                }, 10);
+
+                // สร้าง particle effect
+                const particle = document.createElement('div');
+                particle.style.position = 'absolute';
+                particle.style.left = '20px';
+                particle.style.top = '50%';
+                particle.style.fontSize = '30px';
+                particle.innerHTML = '+1';
+                particle.style.color = '#10b981';
+                particle.style.fontWeight = 'bold';
+                particle.style.pointerEvents = 'none';
+                particle.style.animation = 'floatUp 1s ease-out forwards';
+                arena.appendChild(particle);
+
+                // บ่อย escape count
+                status.innerHTML = \`🎮 \${playerName} หลบหนี: \${escapeCount[playerName]}/\${requiredEscapes} ครั้ง\`;
+
+                // ตรวจสอบว่าชนะหรือไม่
+                if (escapeCount[playerName] === requiredEscapes) {
+                    winGame(playerName);
+                }
+            }
+
+            function winGame(playerName) {
+                const arena = document.getElementById('game-arena');
+                const status = document.getElementById('game-status');
+                const escapeButtons = document.getElementById('escape-buttons');
+
+                // ปิดปุ่ม
+                escapeButtons.style.pointerEvents = 'none';
+                escapeButtons.style.opacity = '0.5';
+
+                // แสดงผู้ชนะ
+                const randomFace = getRandomFace();
+                const trophy = document.createElement('div');
+                trophy.innerHTML = \`
+                    <div class="trophy-face">\${randomFace}</div>
+                    <div class="winner-message">🏆 \${playerName} ชนะแล้ว! 🏆</div>
+                    <div class="score-display">⭐ ได้รับถ้วยรางวัลหน้า: \${randomFace}</div>
+                \`;
+                trophy.style.textAlign = 'center';
+                trophy.style.marginTop = '20px';
+                status.innerHTML = '';
+                status.parentElement.insertBefore(trophy, escapeButtons.nextSibling);
+
+                // Confetti effect
+                for (let i = 0; i < 20; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.innerHTML = '🎉';
+                    confetti.style.position = 'fixed';
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.top = '-10px';
+                    confetti.style.fontSize = '30px';
+                    confetti.style.pointerEvents = 'none';
+                    confetti.style.animation = 'confettiFall ' + (2 + Math.random() * 2) + 's linear forwards';
+                    document.body.appendChild(confetti);
+                }
+            }
+
+            function resetEscapeGame() {
+                escapeCount = {};
+                document.getElementById('game-status').innerHTML = '🎮 เล่นด้านล่าง...';
+                document.getElementById('escape-buttons').style.pointerEvents = 'auto';
+                document.getElementById('escape-buttons').style.opacity = '1';
+                
+                // ลบ trophy
+                const trophyElements = document.querySelectorAll('.trophy-face, .winner-message, .score-display');
+                trophyElements.forEach(el => el.parentElement?.remove());
+
+                // Reset animation
+                const player = document.getElementById('player');
+                player.style.animation = 'none';
+            }
+
+            // Add CSS animation for confetti
+            const style = document.createElement('style');
+            style.textContent = \`
+                @keyframes floatUp {
+                    0% { 
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                    100% { 
+                        opacity: 0;
+                        transform: translateY(-60px);
+                    }
+                }
+                @keyframes confettiFall {
+                    0% { 
+                        opacity: 1;
+                        transform: translateY(0) rotate(0deg);
+                    }
+                    100% { 
+                        opacity: 0;
+                        transform: translateY(100vh) rotate(360deg);
+                    }
+                }
+            \`;
+            document.head.appendChild(style);
+
             // === โค้ดจัดการ Modal ===
             const modal = document.getElementById('studentModal');
 
