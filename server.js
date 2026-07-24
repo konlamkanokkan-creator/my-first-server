@@ -1,4 +1,6 @@
 const http = require('http');
+const url = require('url');
+const querystring = require('querystring');
 // 1. เรียกใช้งาน Pool จากไลบรารี pg สำหรับจัดการการเชื่อมต่อฐานข้อมูล
 const { Pool } = require('pg');
 
@@ -13,16 +15,122 @@ const pool = new Pool({
 const port = process.env.PORT || 3000;
 
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const parsedUrl = url.parse(req.url, true);
+  const pathname = parsedUrl.pathname;
+  const query = parsedUrl.query;
 
   let client;
-  try {
-    // 3. ขอเชื่อมต่อและส่งคำสั่ง SQL ไปดึงข้อมูลจากตาราง students
-    client = await pool.connect();
-    const result = await client.query('SELECT * FROM students');
 
-    // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ Dr.STONE และลำแสงกลายเป็นหิน
-    let html = `
+  try {
+    client = await pool.connect();
+
+    // ==================== API Routes ====================
+    // GET: แสดงทั้งหมด
+    if (pathname === '/api/students' && req.method === 'GET') {
+      const result = await client.query('SELECT * FROM students ORDER BY students_id');
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(result.rows));
+      return;
+    }
+
+    // POST: เพิ่มรายชื่อใหม่
+    if (pathname === '/api/students' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { students_id, stude } = data;
+          
+          if (!students_id || !stude) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }));
+            return;
+          }
+
+          const result = await client.query(
+            'INSERT INTO students (students_id, stude) VALUES ($1, $2) RETURNING *',
+            [students_id, stude]
+          );
+          
+          res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(result.rows[0]));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // PUT: แก้ไขข้อมูล
+    if (pathname === '/api/students' && req.method === 'PUT') {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { id, students_id, stude } = data;
+          
+          if (!id || !students_id || !stude) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }));
+            return;
+          }
+
+          const result = await client.query(
+            'UPDATE students SET students_id = $1, stude = $2 WHERE id = $3 RETURNING *',
+            [students_id, stude, id]
+          );
+          
+          if (result.rows.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'ไม่พบข้อมูล' }));
+            return;
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(result.rows[0]));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // DELETE: ลบข้อมูล
+    if (pathname === '/api/students' && req.method === 'DELETE') {
+      const id = query.id;
+      if (!id) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'ระบุ ID ของข้อมูล' }));
+        return;
+      }
+
+      const result = await client.query('DELETE FROM students WHERE id = $1 RETURNING *', [id]);
+      
+      if (result.rows.length === 0) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'ไม่พบข้อมูล' }));
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ message: 'ลบข้อมูลสำเร็จ' }));
+      return;
+    }
+
+    // ==================== Main Page ====================
+    if (pathname === '/' && req.method === 'GET') {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      const result = await client.query('SELECT * FROM students ORDER BY students_id');
+
+      let html = `
     <!DOCTYPE html>
     <html lang="th">
     <head>
@@ -207,6 +315,133 @@ const server = http.createServer(async (req, res) => {
                 background: #34d399;
             }
 
+            .btn-delete {
+                background: #ef4444;
+                padding: 6px 12px;
+                font-size: 14px;
+                margin: 2px;
+            }
+
+            .btn-delete:hover {
+                background: #dc2626;
+            }
+
+            .btn-edit {
+                background: #f59e0b;
+                padding: 6px 12px;
+                font-size: 14px;
+                margin: 2px;
+            }
+
+            .btn-edit:hover {
+                background: #d97706;
+            }
+
+            .form-group {
+                margin-bottom: 15px;
+                text-align: left;
+            }
+
+            label {
+                display: block;
+                margin-bottom: 5px;
+                color: #10b981;
+                font-weight: bold;
+            }
+
+            input {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #10b981;
+                border-radius: 5px;
+                background: rgba(16, 185, 129, 0.1);
+                color: #ecf39e;
+                font-family: inherit;
+                font-size: 16px;
+                box-sizing: border-box;
+            }
+
+            input:focus {
+                outline: none;
+                box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+                background: rgba(16, 185, 129, 0.2);
+            }
+
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(5px);
+            }
+
+            .modal-content {
+                background: rgba(10, 25, 14, 0.95);
+                margin: 5% auto;
+                padding: 30px;
+                border: 1px solid rgba(16, 185, 129, 0.4);
+                border-radius: 10px;
+                width: 90%;
+                max-width: 500px;
+                box-shadow: 0 0 40px rgba(16, 185, 129, 0.4);
+            }
+
+            .close {
+                color: #ecf39e;
+                float: right;
+                font-size: 28px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: 0.3s;
+            }
+
+            .close:hover {
+                color: #10b981;
+            }
+
+            .modal-title {
+                color: #ecf39e;
+                text-shadow: 0 0 15px #10b981;
+                margin-bottom: 20px;
+            }
+
+            .action-buttons {
+                text-align: center;
+            }
+
+            .btn-cancel {
+                background: #6b7280;
+                margin-top: 15px;
+            }
+
+            .btn-cancel:hover {
+                background: #4b5563;
+            }
+
+            .status-message {
+                padding: 10px;
+                margin-bottom: 15px;
+                border-radius: 5px;
+                text-align: center;
+                display: none;
+            }
+
+            .status-success {
+                background: rgba(16, 185, 129, 0.3);
+                color: #10b981;
+                display: block;
+            }
+
+            .status-error {
+                background: rgba(239, 68, 68, 0.3);
+                color: #ef4444;
+                display: block;
+            }
+
             #formula-result {
                 margin-top: 15px;
                 font-size: 1.1em;
@@ -236,7 +471,7 @@ const server = http.createServer(async (req, res) => {
                 margin: 15px 0;
                 transition: all 0.5s ease;
                 display: inline-block;
-                filter: grayscale(100%) contrast(150%); /* สภาพกลายเป็นหิน */
+                filter: grayscale(100%) contrast(150%);
             }
 
             .bird-revived {
@@ -267,21 +502,35 @@ const server = http.createServer(async (req, res) => {
 
         <!-- ส่วนแสดงตารางข้อมูลนักศึกษา -->
         <div class="container">
-            <table>
+            <h2 style="text-align: center; color: #10b981;">📋 รายชื่อนักศึกษา</h2>
+            <div class="status-message" id="statusMessage"></div>
+            <button class="btn-action" onclick="openAddModal()" style="width: 100%; margin-bottom: 15px;">➕ เพิ่มรายชื่อใหม่</button>
+            <table id="studentsTable">
                 <thead>
                     <tr>
-                        <th>69319010173</th>
-                        <th>กนกกาญจน์ คนล่ำ</th>
+                        <th>ID</th>
+                        <th>รหัสนักศึกษา</th>
+                        <th>ชื่อ-นามสกุล</th>
+                        <th>การจัดการ</th>
                     </tr>
                 </thead>
-                <tbody>`;
+                <tbody id="tableBody">`;
 
-    // วนลูปนำข้อมูลจากฐานข้อมูลมาแสดงในตาราง
-    result.rows.forEach(row => {
-      html += `<tr><td>${row.students_id}</td><td>${row.stude}</td></tr>`;
-    });
+      // วนลูปนำข้อมูลจากฐานข้อมูลมาแสดงในตาราง
+      result.rows.forEach(row => {
+        html += `
+                    <tr id="row-${row.id}">
+                        <td>${row.id}</td>
+                        <td>${row.students_id}</td>
+                        <td>${row.stude}</td>
+                        <td>
+                            <button class="btn-action btn-edit" onclick="openEditModal(${row.id}, '${row.students_id}', '${row.stude}')">✏️ แก้ไข</button>
+                            <button class="btn-action btn-delete" onclick="deleteStudent(${row.id})">🗑️ ลบ</button>
+                        </td>
+                    </tr>`;
+      });
 
-    html += `
+      html += `
                 </tbody>
             </table>
         </div>
@@ -319,15 +568,159 @@ const server = http.createServer(async (req, res) => {
             <button class="btn-action" style="background: #a3b18a;" onclick="resetGame()">🔄 เริ่มใหม่</button>
         </div>
 
+        <!-- Modal สำหรับเพิ่มและแก้ไขรายชื่อ -->
+        <div id="studentModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2 class="modal-title" id="modalTitle">เพิ่มรายชื่อใหม่</h2>
+                <div class="status-message" id="modalStatusMessage"></div>
+                
+                <form id="studentForm">
+                    <input type="hidden" id="studentId">
+                    
+                    <div class="form-group">
+                        <label for="studentIdInput">รหัสนักศึกษา:</label>
+                        <input type="text" id="studentIdInput" placeholder="เช่น 69319010173" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="studentNameInput">ชื่อ-นามสกุล:</label>
+                        <input type="text" id="studentNameInput" placeholder="เช่น กนกกาญจน์ คนล่ำ" required>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="button" class="btn-action" onclick="saveStudent()">💾 บันทึก</button>
+                        <button type="button" class="btn-action btn-cancel" onclick="closeModal()">❌ ยกเลิก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <script>
+            // === โค้ดจัดการ Modal ===
+            const modal = document.getElementById('studentModal');
+
+            function openAddModal() {
+                document.getElementById('modalTitle').innerText = '➕ เพิ่มรายชื่อใหม่';
+                document.getElementById('studentForm').reset();
+                document.getElementById('studentId').value = '';
+                document.getElementById('modalStatusMessage').className = '';
+                document.getElementById('modalStatusMessage').innerText = '';
+                modal.style.display = 'block';
+            }
+
+            function openEditModal(id, studentId, studentName) {
+                document.getElementById('modalTitle').innerText = '✏️ แก้ไขรายชื่อ';
+                document.getElementById('studentId').value = id;
+                document.getElementById('studentIdInput').value = studentId;
+                document.getElementById('studentNameInput').value = studentName;
+                document.getElementById('modalStatusMessage').className = '';
+                document.getElementById('modalStatusMessage').innerText = '';
+                modal.style.display = 'block';
+            }
+
+            function closeModal() {
+                modal.style.display = 'none';
+                document.getElementById('studentForm').reset();
+            }
+
+            window.onclick = function(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            }
+
+            async function saveStudent() {
+                const id = document.getElementById('studentId').value;
+                const studentId = document.getElementById('studentIdInput').value.trim();
+                const studentName = document.getElementById('studentNameInput').value.trim();
+                const statusDiv = document.getElementById('modalStatusMessage');
+
+                if (!studentId || !studentName) {
+                    statusDiv.className = 'status-message status-error';
+                    statusDiv.innerText = '❌ กรุณากรอกข้อมูลให้ครบถ้วน';
+                    return;
+                }
+
+                try {
+                    const method = id ? 'PUT' : 'POST';
+                    const data = {
+                        students_id: studentId,
+                        stude: studentName
+                    };
+
+                    if (id) {
+                        data.id = parseInt(id);
+                    }
+
+                    const response = await fetch('/api/students', {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        statusDiv.className = 'status-message status-error';
+                        statusDiv.innerText = '❌ ' + (result.error || 'เกิดข้อผิดพลาด');
+                        return;
+                    }
+
+                    statusDiv.className = 'status-message status-success';
+                    statusDiv.innerText = '✅ ' + (id ? 'แก้ไข' : 'เพิ่ม') + 'ข้อมูลสำเร็จ!';
+                    
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } catch (error) {
+                    statusDiv.className = 'status-message status-error';
+                    statusDiv.innerText = '❌ ' + error.message;
+                }
+            }
+
+            async function deleteStudent(id) {
+                if (!confirm('คุณแน่ใจว่าต้องการลบรายชื่อนี้?')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(\`/api/students?id=\${id}\`, {
+                        method: 'DELETE'
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        alert('❌ ' + (result.error || 'เกิดข้อผิดพลาด'));
+                        return;
+                    }
+
+                    showStatus('✅ ลบข้อมูลสำเร็จ!', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } catch (error) {
+                    alert('❌ ' + error.message);
+                }
+            }
+
+            function showStatus(message, type) {
+                const statusDiv = document.getElementById('statusMessage');
+                statusDiv.className = 'status-message status-' + type;
+                statusDiv.innerText = message;
+            }
+
             // === โค้ดมินิเกมวิเคราะห์วิทยาศาสตร์ ===
             const scienceQuotes = [
                 "🧪 ความสำเร็จในการรันโค้ดเทอมนี้คือ 10,000,000%!",
-                "⚡ วิทยาศาสตร์ไม่ได้โกหก: ถ้าพยายามต่อไป เกรด A จะสังเคราะห์ขึ้นมาเอง!",
+                "⚡ วิทยาศาสตร์ไม่ได้โกหก: ถ้าพยายามต่อไป เกรด A จะสังเคราะห์ขึ้นมา!",
                 "🪨 ต่อให้ถูกสต๊อกเป็นหินไป 3,700 ปี สมองก็ยังต้องประมวลผลต่อไป!",
-                "💡 กฎของธรรมชาติ: โค้ดที่ไม่มีบั๊ก คือผลลัพธ์ของการทดลองนับพันครั้ง",
-                "🔥 สังเคราะห์พลังงานสำเร็จ! วันนี้คุณมีกำลังใจลุยโปรเจกต์เต็มร้อย",
-                "🧬 ตรวจพบโครงสร้างความขยันระดับเซลล์! การเรียนสัปดาห์นี้จะฉลุย"
+                "💡 กฎของธรรมชาติ: โค้ดที่ไม่มีบั๊ก คือผลลัพธ์ของการทดลองนับพัน!",
+                "🔥 สังเคราะห์พลังงานสำเร็จ! วันนี้คุณมีกำลังใจลุยโปรเจกต์เต็มร้อย!",
+                "🧬 ตรวจพบโครงสร้างความขยันระดับเซลล์! การเรียนสัปดาห์นี้จะฉลุย!"
             ];
 
             function analyzeScience() {
@@ -369,7 +762,7 @@ const server = http.createServer(async (req, res) => {
                 } else {
                     bird.className = "bird-stage";
                     bird.innerText = "🦅";
-                    status.innerHTML = "<span style='color: #ef4444;'>❌ ไม่เกิดปฏิกิริยาใดๆ... สัดส่วนสารเคมียังไม่ถูกต้อง! (ลองปรับกรดใกล้ๆ 30%)</span>";
+                    status.innerHTML = "<span style='color: #ef4444;'>❌ ไม่เกิดปฏิกิริยาใดๆ... สัดส่วนสารเคมียังไม่ถูกต้อง</span>";
                 }
             }
 
@@ -389,11 +782,18 @@ const server = http.createServer(async (req, res) => {
     </body>
     </html>`;
 
-    res.statusCode = 200;
-    res.end(html);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    }
+
+    // ==================== 404 ====================
+    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end('<h1>404 - ไม่พบหน้านี้</h1>');
+
   } catch (err) {
     console.error("Database or Server Error:", err);
-    res.statusCode = 500;
+    res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(`<h1>เกิดข้อผิดพลาดในการทดลอง!</h1><p>${err.message}</p>`);
   } finally {
     if (client) {
