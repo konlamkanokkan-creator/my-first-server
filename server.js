@@ -21,7 +21,7 @@ const server = http.createServer(async (req, res) => {
     client = await pool.connect();
     const result = await client.query('SELECT * FROM students');
 
-    // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ห้องทดลองวิทยาศาสตร์ Dr.STONE และมินิเกม
+    // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ Dr.STONE และมินิเกมผสมสูตร Nital
     let html = `
     <!DOCTYPE html>
     <html lang="th">
@@ -30,7 +30,7 @@ const server = http.createServer(async (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Kingdom of Science - Student Database</title>
         <style>
-            /* ธีมห้องทดลองวิทยาศาสตร์ /Dr.STONE */
+            /* ธีมห้องทดลองวิทยาศาสตร์ Dr.STONE */
             body {
                 background: linear-gradient(180deg, #0b1a0e, #132a13, #31572c);
                 color: #ecf39e;
@@ -82,7 +82,6 @@ const server = http.createServer(async (req, res) => {
                 letter-spacing: 2px;
             }
 
-            /* สไตล์ตารางตลับทดลอง */
             .container {
                 background: rgba(19, 42, 19, 0.7);
                 backdrop-filter: blur(8px);
@@ -117,7 +116,6 @@ const server = http.createServer(async (req, res) => {
                 background: rgba(16, 185, 129, 0.1);
             }
 
-            /* โซนกิจกรรมทางวิทยาศาสตร์ */
             .game-box {
                 background: rgba(49, 87, 44, 0.3);
                 border: 2px dashed #10b981;
@@ -157,24 +155,49 @@ const server = http.createServer(async (req, res) => {
                 font-weight: bold;
                 color: #ecf39e;
                 min-height: 30px;
+            }
+
+            /* สไตล์มินิเกมถอนคำสาปหินนก */
+            .lab-controls {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                margin: 15px 0;
+                align-items: center;
+            }
+
+            .slider-group {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 80%;
+                justify-content: space-between;
+            }
+
+            .bird-stage {
+                font-size: 80px;
+                margin: 15px 0;
                 transition: all 0.5s ease;
+                display: inline-block;
+                filter: grayscale(100%) contrast(150%); /* สภาพกลายเป็นหิน */
             }
 
-            /* Canvas สไตล์สำหรับเกมเก็บไนทอล */
-            #nital-game-canvas {
-                background: #050d07;
-                border: 2px solid #10b981;
-                border-radius: 5px;
-                display: block;
-                margin: 15px auto;
-                max-width: 100%;
-                touch-action: none;
+            .bird-revived {
+                filter: grayscale(0%) contrast(100%);
+                animation: reviveGlow 1s infinite alternate;
+                transform: scale(1.2);
             }
 
-            .game-stats {
+            @keyframes reviveGlow {
+                0% { text-shadow: 0 0 10px #10b981; }
+                100% { text-shadow: 0 0 30px #ecf39e, 0 0 40px #10b981; }
+            }
+
+            #revive-status {
                 font-size: 1.1em;
-                color: #10b981;
-                margin-top: 10px;
+                font-weight: bold;
+                min-height: 40px;
+                color: #ecf39e;
             }
         </style>
     </head>
@@ -201,7 +224,6 @@ const server = http.createServer(async (req, res) => {
       html += `<tr><td>${row.students_id}</td><td>${row.stude}</td></tr>`;
     });
 
-    // ปิดท้ายตาราง และใส่เกมสุ่มสูตร + เกมเก็บไนทอล
     html += `
                 </tbody>
             </table>
@@ -215,16 +237,29 @@ const server = http.createServer(async (req, res) => {
             <div id="formula-result"></div>
         </div>
 
-        <!-- ลูกเล่นที่ 2: เกมหลบหินเก็บน้ำยาไนทอล (Nital Formula) -->
+        <!-- ลูกเล่นที่ 2: มินิเกมผสมน้ำยา Nital คืนชีฟให้นกหิน -->
         <div class="game-box">
-            <h3>🧪 มินิเกม: ภารกิจปรุงน้ำยาคืนชีพ (Nital Liquid) 🧪</h3>
-            <p>ใช้เมาส์หรือนิ้วควบคุมขวดแก้ว 🧪 เพื่อคุมการรับกรด nitric & alcohol 💧 และหลบเศษหิน 🪨</p>
-            <button class="btn-action" id="start-game-btn" onclick="startGame()">เริ่มทดลอง / เล่นใหม่</button>
+            <h3>🦅 มินิเกม: ภารกิจสังเคราะห์ Nital คืนชีพนกหิน 🦅</h3>
+            <p>ปรับสัดส่วนเพื่อสังเคราะห์ **Nital Fluid** ถอนคำสาปหินให้นกนางแอ่น!</p>
             
-            <canvas id="nital-game-canvas" width="320" height="400"></canvas>
-            <div class="game-stats">
-                ปริมาณน้ำยา: <span id="game-score">0</span> mL | สถิติสูงสุด: <span id="high-score">0</span> mL
+            <!-- ตัวแสดงผลนก -->
+            <div id="bird" class="bird-stage">🦅</div>
+            <div id="revive-status">สถานะ: นกยังคงเป็นหินไร้ปฏิกิริยา...</div>
+
+            <!-- ส่วนปรับผสมสารเคมี -->
+            <div class="lab-controls">
+                <div class="slider-group">
+                    <label for="nitric">🧪 กรดไนตริก (Nitric Acid): <span id="nitric-val">50</span>%</label>
+                    <input type="range" id="nitric" min="0" max="100" value="50" oninput="updateSliders('nitric')">
+                </div>
+                <div class="slider-group">
+                    <label for="alcohol">🍷 แอลกอฮอล์ (Alcohol): <span id="alcohol-val">50</span>%</label>
+                    <input type="range" id="alcohol" min="0" max="100" value="50" oninput="updateSliders('alcohol')">
+                </div>
             </div>
+
+            <button class="btn-action" onclick="applyNital()">🧪 ราดน้ำยา Nital!</button>
+            <button class="btn-action" style="background: #a3b18a;" onclick="resetGame()">🔄 เริ่มใหม่</button>
         </div>
 
         <script>
@@ -248,137 +283,50 @@ const server = http.createServer(async (req, res) => {
                 }, 300);
             }
 
-            // === โค้ดมินิเกมเก็บสารเคมีหลบเศษหิน ===
-            const canvas = document.getElementById('nital-game-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            let gameInterval;
-            let score = 0;
-            let highScore = 0;
-            let isGameOver = true;
-
-            // ตัวละคร (ขวดแก้ว)
-            const player = {
-                x: canvas.width / 2,
-                y: canvas.height - 30,
-                radius: 18,
-                emoji: "🧪"
-            };
-
-            let fallingItems = [];
-
-            function updatePlayerPosition(clientX) {
-                const rect = canvas.getBoundingClientRect();
-                const mouseX = clientX - rect.left;
-                player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, mouseX));
-            }
-
-            canvas.addEventListener('mousemove', (e) => {
-                if (!isGameOver) updatePlayerPosition(e.clientX);
-            });
-
-            canvas.addEventListener('touchmove', (e) => {
-                if (!isGameOver && e.touches.length > 0) {
-                    updatePlayerPosition(e.touches[0].clientX);
-                }
-            });
-
-            function createItem() {
-                const isRock = Math.random() < 0.6; // โอกาสเจอหิน 60% เจอสารเคมี 40%
-                const speed = 2 + Math.random() * 3 + (score / 20);
-                fallingItems.push({
-                    x: Math.random() * (canvas.width - 20) + 10,
-                    y: 0,
-                    speed: speed,
-                    type: isRock ? 'rock' : 'chemical',
-                    emoji: isRock ? "🪨" : "💧"
-                });
-            }
-
-            function startGame() {
-                clearInterval(gameInterval);
-                fallingItems = [];
-                score = 0;
-                isGameOver = false;
-                player.x = canvas.width / 2;
-                document.getElementById('game-score').innerText = score;
-                document.getElementById('start-game-btn').innerText = "เริ่มทดลองใหม่";
-
-                gameInterval = setInterval(updateGame, 1000 / 60);
-            }
-
-            function updateGame() {
-                if (Math.random() < 0.15) {
-                    createItem();
-                }
-
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // วาดตัวละคร (ขวดสารเคมี)
-                ctx.font = "28px Serifs";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(player.emoji, player.x, player.y);
-
-                // วาดวัตถุที่หล่นลงมา
-                for (let i = 0; i < fallingItems.length; i++) {
-                    let item = fallingItems[i];
-                    item.y += item.speed;
-
-                    ctx.font = "20px Serifs";
-                    ctx.fillText(item.emoji, item.x, item.y);
-
-                    // ตรวจจับการชน
-                    const distX = player.x - item.x;
-                    const distY = player.y - item.y;
-                    const distance = Math.sqrt(distX * distX + distY * distY);
-
-                    if (distance < player.radius + 5) {
-                        if (item.type === 'rock') {
-                            gameOver();
-                            return;
-                        } else if (item.type === 'chemical') {
-                            score += 5;
-                            document.getElementById('game-score').innerText = score;
-                            fallingItems.splice(i, 1);
-                            i--;
-                            continue;
-                        }
-                    }
-
-                    if (item.y > canvas.height) {
-                        fallingItems.splice(i, 1);
-                        i--;
-                    }
-                }
-            }
-
-            function gameOver() {
-                isGameOver = true;
-                clearInterval(gameInterval);
-
-                if (score > highScore) {
-                    highScore = score;
-                    document.getElementById('high-score').innerText = highScore;
-                }
-
-                ctx.fillStyle = "rgba(5, 13, 7, 0.85)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                ctx.fillStyle = "#10b981";
-                ctx.font = "bold 20px 'Courier New', monospace";
-                ctx.fillText("💥 ขวดทดลองแตก! 💥", canvas.width / 2, canvas.height / 2 - 15);
+            // === โค้ดมินิเกมสกัดน้ำยา Nital คืนชีพนก ===
+            function updateSliders(changed) {
+                const nitricInput = document.getElementById('nitric');
+                const alcoholInput = document.getElementById('alcohol');
                 
-                ctx.fillStyle = "#ecf39e";
-                ctx.font = "16px 'Courier New', monospace";
-                ctx.fillText("สกัดสารได้: " + score + " mL", canvas.width / 2, canvas.height / 2 + 20);
+                if (changed === 'nitric') {
+                    alcoholInput.value = 100 - nitricInput.value;
+                } else {
+                    nitricInput.value = 100 - alcoholInput.value;
+                }
+
+                document.getElementById('nitric-val').innerText = nitricInput.value;
+                document.getElementById('alcohol-val').innerText = alcoholInput.value;
             }
 
-            // วาดหน้าแรกก่อนกดเริ่ม
-            ctx.fillStyle = "#10b981";
-            ctx.font = "14px 'Courier New', monospace";
-            ctx.textAlign = "center";
-            ctx.fillText("กดปุ่มเพื่อเริ่มการสกัดสาร", canvas.width / 2, canvas.height / 2);
+            function applyNital() {
+                const nitric = parseInt(document.getElementById('nitric').value);
+                const alcohol = parseInt(document.getElementById('alcohol').value);
+                const bird = document.getElementById('bird');
+                const status = document.getElementById('revive-status');
+
+                // สูตรที่ถูกต้องตามเรื่อง Dr.STONE คือ Nitric Acid 30% + Alcohol 70% (ยอมให้คลาดเคลื่อนได้ +-2%)
+                if (nitric >= 28 && nitric <= 32 && alcohol >= 68 && alcohol <= 72) {
+                    bird.className = "bird-stage bird-revived";
+                    bird.innerText = "🕊️"; // นกสลัดหินหลุดและบินได้!
+                    status.innerHTML = "<span style='color: #10b981;'>✨ สำเร็จ 10,000,000%! ชั้นหินปริแตก นกฟื้นคืนชีพแล้ว! ✨</span>";
+                } else {
+                    bird.className = "bird-stage";
+                    bird.innerText = "🦅";
+                    status.innerHTML = "<span style='color: #ef4444;'>❌ ไม่เกิดปฏิกิริยาใดๆ... สัดส่วนสารเคมียังไม่ถูกต้อง! (ลองปรับกรดใกล้ๆ 30%)</span>";
+                }
+            }
+
+            function resetGame() {
+                const bird = document.getElementById('bird');
+                const status = document.getElementById('revive-status');
+                bird.className = "bird-stage";
+                bird.innerText = "🦅";
+                status.innerText = "สถานะ: นกยังคงเป็นหินไร้ปฏิกิริยา...";
+                document.getElementById('nitric').value = 50;
+                document.getElementById('alcohol').value = 50;
+                document.getElementById('nitric-val').innerText = 50;
+                document.getElementById('alcohol-val').innerText = 50;
+            }
         </script>
 
     </body>
