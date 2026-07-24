@@ -21,20 +21,20 @@ const server = http.createServer(async (req, res) => {
     client = await pool.connect();
     const result = await client.query('SELECT * FROM students');
 
-    // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ธีมดวงจันทร์ และมินิเกม
+    // 4. สร้างโครงสร้าง HTML พร้อม CSS สไตล์ห้องทดลองวิทยาศาสตร์ Dr.STONE และมินิเกม
     let html = `
     <!DOCTYPE html>
     <html lang="th">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ฐานข้อมูลนักศึกษาใต้แสงจันทร์</title>
+        <title>Kingdom of Science - Student Database</title>
         <style>
-            /* ธีมท้องฟ้ากลางคืน */
+            /* ธีมห้องทดลองวิทยาศาสตร์ /Dr.STONE */
             body {
-                background: linear-gradient(180deg, #0b132b, #1c2541, #3a506b);
-                color: #e0e1dd;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(180deg, #0b1a0e, #132a13, #31572c);
+                color: #ecf39e;
+                font-family: 'Courier New', Courier, monospace, sans-serif;
                 margin: 0;
                 padding: 20px;
                 display: flex;
@@ -45,36 +45,51 @@ const server = http.createServer(async (req, res) => {
                 position: relative;
             }
 
-            /* ลูกเล่นดวงจันทร์เรืองแสง */
-            .moon {
-                width: 100px;
-                height: 100px;
-                background: #fbf8cc;
-                border-radius: 50%;
-                box-shadow: 0 0 40px #fbf8cc, 0 0 80px rgba(251, 248, 204, 0.6);
+            /* บีกเกอร์ทดลองเรืองแสง */
+            .beaker {
+                width: 70px;
+                height: 90px;
+                border: 4px solid #a3b18a;
+                border-top: none;
+                border-radius: 0 0 15px 15px;
+                position: relative;
                 margin: 20px 0;
-                animation: float 4s ease-in-out infinite;
+                background: rgba(163, 177, 138, 0.1);
+                box-shadow: 0 0 20px #a3b18a, inset 0 0 15px #10b981;
+                overflow: hidden;
             }
 
-            @keyframes float {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-10px); }
+            .beaker::before {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                width: 100%;
+                height: 60%;
+                background: #10b981;
+                box-shadow: 0 0 15px #10b981;
+                animation: liquid 3s ease-in-out infinite alternate;
+            }
+
+            @keyframes liquid {
+                0% { height: 50%; }
+                100% { height: 75%; }
             }
 
             h1 {
-                text-shadow: 0 0 10px rgba(255,255,255,0.5);
+                text-shadow: 0 0 10px #10b981;
                 text-align: center;
-                color: #fbf8cc;
+                color: #10b981;
+                letter-spacing: 2px;
             }
 
-            /* สไตล์ตารางสไตล์โปร่งแสงขอบมน */
+            /* สไตล์ตารางตลับทดลอง */
             .container {
-                background: rgba(255, 255, 255, 0.1);
-                backdrop-filter: blur(10px);
-                border-radius: 15px;
+                background: rgba(19, 42, 19, 0.7);
+                backdrop-filter: blur(8px);
+                border-radius: 10px;
                 padding: 25px;
-                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+                border: 1px solid #a3b18a;
                 width: 90%;
                 max-width: 600px;
                 margin-bottom: 30px;
@@ -89,150 +104,152 @@ const server = http.createServer(async (req, res) => {
             th, td {
                 padding: 12px;
                 text-align: left;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                border-bottom: 1px solid rgba(163, 177, 138, 0.2);
             }
 
             th {
-                color: #fbf8cc;
+                color: #10b981;
                 font-size: 1.1em;
+                text-transform: uppercase;
             }
 
             tr:hover {
-                background: rgba(255, 255, 255, 0.05);
+                background: rgba(16, 185, 129, 0.1);
             }
 
-            /* โซนกิจกรรมร่วมสนุกเสี่ยงทายดวง */
+            /* โซนกิจกรรมทางวิทยาศาสตร์ */
             .game-box {
-                background: rgba(251, 248, 204, 0.15);
-                border: 2px dashed #fbf8cc;
-                border-radius: 15px;
+                background: rgba(49, 87, 44, 0.3);
+                border: 2px dashed #10b981;
+                border-radius: 10px;
                 padding: 20px;
                 text-align: center;
                 max-width: 600px;
                 width: 90%;
-                box-shadow: 0 0 20px rgba(251, 248, 204, 0.2);
+                box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
                 margin-bottom: 30px;
             }
 
             .btn-action {
-                background: #fbf8cc;
-                color: #0b132b;
+                background: #10b981;
+                color: #0b1a0e;
                 border: none;
                 padding: 12px 25px;
                 font-size: 16px;
                 font-weight: bold;
-                border-radius: 25px;
+                border-radius: 5px;
                 cursor: pointer;
                 transition: all 0.3s ease;
-                box-shadow: 0 4px 15px rgba(251, 248, 204, 0.4);
+                box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
                 margin: 5px;
+                font-family: inherit;
             }
 
             .btn-action:hover {
                 transform: scale(1.05);
-                box-shadow: 0 4px 25px rgba(251, 248, 204, 0.8);
+                box-shadow: 0 0 20px rgba(16, 185, 129, 0.8);
+                background: #34d399;
             }
 
-            #fortune-result {
+            #formula-result {
                 margin-top: 15px;
-                font-size: 1.2em;
+                font-size: 1.1em;
                 font-weight: bold;
-                color: #fbf8cc;
+                color: #ecf39e;
                 min-height: 30px;
                 transition: all 0.5s ease;
             }
 
-            /* Canvas สไตล์สำหรับเกมหลบเม็ดฝน */
-            #rain-game-canvas {
-                background: rgba(11, 19, 43, 0.8);
-                border: 2px solid #fbf8cc;
-                border-radius: 10px;
+            /* Canvas สไตล์สำหรับเกมเก็บไนทอล */
+            #nital-game-canvas {
+                background: #050d07;
+                border: 2px solid #10b981;
+                border-radius: 5px;
                 display: block;
                 margin: 15px auto;
                 max-width: 100%;
-                touch-action: none; /* ป้องกันจอเลื่อนบนมือถือ */
+                touch-action: none;
             }
 
             .game-stats {
                 font-size: 1.1em;
-                color: #fbf8cc;
+                color: #10b981;
                 margin-top: 10px;
             }
         </style>
     </head>
     <body>
 
-        <!-- รูปดวงจันทร์ลอยได้ -->
-        <div class="moon"></div>
+        <!-- บีกเกอร์ทดลองเรืองแสง -->
+        <div class="beaker"></div>
 
-        <h1>🌕 ฐานข้อมูลนักศึกษา (คืนพระจันทร์เต็มดวง) 🌕</h1>
+        <h1>🧪 KINGDOM OF SCIENCE DATABASE 🧪</h1>
 
         <!-- ส่วนแสดงตารางข้อมูลนักศึกษา -->
         <div class="container">
             <table>
                 <thead>
                     <tr>
-                        <th>รหัสนักศึกษา</th>
-                        <th>ชื่อ-นามสกุล</th>
+                        <th>69319010173</th>
+                        <th>กนกกาญจน์ คนล่ำ</th>
                     </tr>
                 </thead>
                 <tbody>`;
 
     // วนลูปนำข้อมูลจากฐานข้อมูลมาแสดงในตาราง
     result.rows.forEach(row => {
-      html += `<tr><td>${row.student_id}</td><td>${row.student_name}</td></tr>`;
+      html += `<tr><td>${row.students_id}</td><td>${row.stude}</td></tr>`;
     });
 
-    // ปิดท้ายตาราง และใส่เกมเสี่ยงดวง + เกมหลบฝน
+    // ปิดท้ายตาราง และใส่เกมสุ่มสูตร + เกมเก็บไนทอล
     html += `
                 </tbody>
             </table>
         </div>
 
-        <!-- ลูกเล่นที่ 1: สุ่มคำทำนายใต้แสงจันทร์ -->
+        <!-- ลูกเล่นที่ 1: สุ่มคำคมการทดลองวิทยาศาสตร์ (Senku) -->
         <div class="game-box">
-            <h3>🔮 มินิเกม: เสี่ยงทายดวงชะตานักศึกษาใต้แสงจันทร์ 🔮</h3>
-            <p>กดปุ่มเพื่อดูว่าพระจันทร์อยากบอกอะไรกับคุณในเทอมนี้?</p>
-            <button class="btn-action" onclick="getFortune()">ขอกระซิบถามพระจันทร์</button>
-            <div id="fortune-result"></div>
+            <h3>🔬 มินิเกม: ตรวจวิเคราะห์อัตราความสำเร็จ 10,000,000% 🔬</h3>
+            <p>กดปุ่มเพื่อเริ่มการประมวลผลทางวิทยาศาสตร์โดยเซ็นคู!</p>
+            <button class="btn-action" onclick="analyzeScience()">คำนวณผลลัพธ์</button>
+            <div id="formula-result"></div>
         </div>
 
-        <!-- ลูกเล่นที่ 2: เกมหลบเม็ดฝนใต้แสงจันทร์ -->
+        <!-- ลูกเล่นที่ 2: เกมหลบหินเก็บน้ำยาไนทอล (Nital Formula) -->
         <div class="game-box">
-            <h3>🌧️ มินิเกม: กระต่ายหลบฝนใต้แสงจันทร์ 🌧️</h3>
-            <p>ใช้เมาส์หรือนิ้วลากน้องกระต่าย 🐰 หลบสายฝน 💧 เพื่อทำคะแนน!</p>
-            <button class="btn-action" id="start-game-btn" onclick="startGame()">เริ่มเล่น / เล่นใหม่</button>
+            <h3>🧪 มินิเกม: ภารกิจปรุงน้ำยาคืนชีพ (Nital Liquid) 🧪</h3>
+            <p>ใช้เมาส์หรือนิ้วควบคุมขวดแก้ว 🧪 เพื่อคุมการรับกรด nitric & alcohol 💧 และหลบเศษหิน 🪨</p>
+            <button class="btn-action" id="start-game-btn" onclick="startGame()">เริ่มทดลอง / เล่นใหม่</button>
             
-            <canvas id="rain-game-canvas" width="320" height="400"></canvas>
+            <canvas id="nital-game-canvas" width="320" height="400"></canvas>
             <div class="game-stats">
-                คะแนน: <span id="game-score">0</span> | คะแนนสูงสุด: <span id="high-score">0</span>
+                ปริมาณน้ำยา: <span id="game-score">0</span> mL | สถิติสูงสุด: <span id="high-score">0</span> mL
             </div>
         </div>
 
         <script>
-            // === โค้ดมินิเกมเสี่ยงดวง ===
-            const fortunes = [
-                "🌕 พระจันทร์บอกว่า: เทอมนี้เกรด A จะพุ่งชนจนตั้งตัวไม่ทัน!",
-                "🌙 พระจันทร์บอกว่า: จะมีคนแอบมองคุณจากหน้าต่างห้องเรียนวิทยาศาสตร์",
-                "🌑 พระจันทร์มืดมิด: ช่วงนี้โค้ดจะรันผ่านในรอบเดียวแบบปาฏิหาริย์!",
-                "🔮 คำทำนายทายทัก: สัปดาห์หน้าจะได้ลาภปาก มีเพื่อนสายเปย์เลี้ยงชาบู",
-                "✨ ดวงของคุณวันนี้: พลังงานเต็มเปี่ยม อาจารย์สั่งงานปุ๊บ สมองโล่งปั๊บ (โล่งแบบไม่มีอะไรเลย)",
-                "🌟 ดวงเด่นคืนนี้: จะได้เจอเนื้อคู่... ในฝันคืนนี้แหละ นอนเถอะนะ",
-                "🦉 นกฮูกฝากบอก: ส่งงานตรงเวลา แล้วชีวิตจะราบรื่นอย่างเหลือเชื่อ!"
+            // === โค้ดมินิเกมวิเคราะห์วิทยาศาสตร์ ===
+            const scienceQuotes = [
+                "🧪 ความสำเร็จในการรันโค้ดเทอมนี้คือ 10,000,000%!",
+                "⚡ วิทยาศาสตร์ไม่ได้โกหก: ถ้าพยายามต่อไป เกรด A จะสังเคราะห์ขึ้นมาเอง!",
+                "🪨 ต่อให้ถูกสต๊อกเป็นหินไป 3,700 ปี สมองก็ยังต้องประมวลผลต่อไป!",
+                "💡 กฎของธรรมชาติ: โค้ดที่ไม่มีบั๊ก คือผลลัพธ์ของการทดลองนับพันครั้ง",
+                "🔥 สังเคราะห์พลังงานสำเร็จ! วันนี้คุณมีกำลังใจลุยโปรเจกต์เต็มร้อย",
+                "🧬 ตรวจพบโครงสร้างความขยันระดับเซลล์! การเรียนสัปดาห์นี้จะฉลุย"
             ];
 
-            function getFortune() {
-                const resultDiv = document.getElementById('fortune-result');
+            function analyzeScience() {
+                const resultDiv = document.getElementById('formula-result');
                 resultDiv.style.opacity = 0;
                 setTimeout(() => {
-                    const randomIndex = Math.floor(Math.random() * fortunes.length);
-                    resultDiv.innerText = fortunes[randomIndex];
+                    const randomIndex = Math.floor(Math.random() * scienceQuotes.length);
+                    resultDiv.innerText = scienceQuotes[randomIndex];
                     resultDiv.style.opacity = 1;
                 }, 300);
             }
 
-            // === โค้ดมินิเกมหลบเม็ดฝน ===
-            const canvas = document.getElementById('rain-game-canvas');
+            // === โค้ดมินิเกมเก็บสารเคมีหลบเศษหิน ===
+            const canvas = document.getElementById('nital-game-canvas');
             const ctx = canvas.getContext('2d');
             
             let gameInterval;
@@ -240,21 +257,19 @@ const server = http.createServer(async (req, res) => {
             let highScore = 0;
             let isGameOver = true;
 
-            // ตัวละคร (กระต่าย)
+            // ตัวละคร (ขวดแก้ว)
             const player = {
                 x: canvas.width / 2,
                 y: canvas.height - 30,
                 radius: 18,
-                emoji: "🐰"
+                emoji: "🧪"
             };
 
-            let raindrops = [];
+            let fallingItems = [];
 
-            // ระบบควบคุม (Mouse / Touch)
             function updatePlayerPosition(clientX) {
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = clientX - rect.left;
-                // จำกัดให้อยู่ภายใน Canvas
                 player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, mouseX));
             }
 
@@ -268,75 +283,72 @@ const server = http.createServer(async (req, res) => {
                 }
             });
 
-            function createRaindrop() {
-                const speed = 2 + Math.random() * 3 + (score / 50); // ยิ่งคะแนนเยอะ ฝนยิ่งตกไว
-                raindrops.push({
-                    x: Math.random() * (canvas.width - 10) + 5,
+            function createItem() {
+                const isRock = Math.random() < 0.6; // โอกาสเจอหิน 60% เจอสารเคมี 40%
+                const speed = 2 + Math.random() * 3 + (score / 20);
+                fallingItems.push({
+                    x: Math.random() * (canvas.width - 20) + 10,
                     y: 0,
-                    length: 12 + Math.random() * 8,
-                    speed: speed
+                    speed: speed,
+                    type: isRock ? 'rock' : 'chemical',
+                    emoji: isRock ? "🪨" : "💧"
                 });
             }
 
             function startGame() {
-                // ล้างค่าเดิม
                 clearInterval(gameInterval);
-                raindrops = [];
+                fallingItems = [];
                 score = 0;
                 isGameOver = false;
                 player.x = canvas.width / 2;
                 document.getElementById('game-score').innerText = score;
-                document.getElementById('start-game-btn').innerText = "เริ่มเล่นใหม่";
+                document.getElementById('start-game-btn').innerText = "เริ่มทดลองใหม่";
 
-                // Loop การทำงานของเกม (60 FPS)
                 gameInterval = setInterval(updateGame, 1000 / 60);
             }
 
             function updateGame() {
-                // สุ่มสร้างเม็ดฝน
-                if (Math.random() < 0.2) {
-                    createRaindrop();
+                if (Math.random() < 0.15) {
+                    createItem();
                 }
 
-                // เคลียร์ Canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // วาดตัวละคร (กระต่าย)
+                // วาดตัวละคร (ขวดสารเคมี)
                 ctx.font = "28px Serifs";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillText(player.emoji, player.x, player.y);
 
-                // ขยับและวาดเม็ดฝน
-                for (let i = 0; i < raindrops.length; i++) {
-                    let drop = raindrops[i];
-                    drop.y += drop.speed;
+                // วาดวัตถุที่หล่นลงมา
+                for (let i = 0; i < fallingItems.length; i++) {
+                    let item = fallingItems[i];
+                    item.y += item.speed;
 
-                    // วาดสายฝนเรืองแสง
-                    ctx.beginPath();
-                    ctx.moveTo(drop.x, drop.y);
-                    ctx.lineTo(drop.x, drop.y + drop.length);
-                    ctx.strokeStyle = '#a2d2ff';
-                    ctx.lineWidth = 2;
-                    ctx.lineCap = 'round';
-                    ctx.stroke();
+                    ctx.font = "20px Serifs";
+                    ctx.fillText(item.emoji, item.x, item.y);
 
-                    // ตรวจจับการชน (Collision Detection)
-                    const distX = player.x - drop.x;
-                    const distY = player.y - (drop.y + drop.length);
+                    // ตรวจจับการชน
+                    const distX = player.x - item.x;
+                    const distY = player.y - item.y;
                     const distance = Math.sqrt(distX * distX + distY * distY);
 
-                    if (distance < player.radius) {
-                        gameOver();
-                        return;
+                    if (distance < player.radius + 5) {
+                        if (item.type === 'rock') {
+                            gameOver();
+                            return;
+                        } else if (item.type === 'chemical') {
+                            score += 5;
+                            document.getElementById('game-score').innerText = score;
+                            fallingItems.splice(i, 1);
+                            i--;
+                            continue;
+                        }
                     }
 
-                    // เม็ดฝนตกถึงพื้น -> เพิ่มคะแนน
-                    if (drop.y > canvas.height) {
-                        raindrops.splice(i, 1);
+                    if (item.y > canvas.height) {
+                        fallingItems.splice(i, 1);
                         i--;
-                        score += 1;
-                        document.getElementById('game-score').innerText = score;
                     }
                 }
             }
@@ -350,23 +362,23 @@ const server = http.createServer(async (req, res) => {
                     document.getElementById('high-score').innerText = highScore;
                 }
 
-                // วาดข้อความ Game Over
-                ctx.fillStyle = "rgba(11, 19, 43, 0.85)";
+                ctx.fillStyle = "rgba(5, 13, 7, 0.85)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                ctx.fillStyle = "#fbf8cc";
-                ctx.font = "bold 22px 'Segoe UI', sans-serif";
-                ctx.fillText("☔ เปียกฝนซะแล้ว! ☔", canvas.width / 2, canvas.height / 2 - 15);
+                ctx.fillStyle = "#10b981";
+                ctx.font = "bold 20px 'Courier New', monospace";
+                ctx.fillText("💥 ขวดทดลองแตก! 💥", canvas.width / 2, canvas.height / 2 - 15);
                 
-                ctx.font = "16px 'Segoe UI', sans-serif";
-                ctx.fillText("ทำได้ " + score + " คะแนน", canvas.width / 2, canvas.height / 2 + 20);
+                ctx.fillStyle = "#ecf39e";
+                ctx.font = "16px 'Courier New', monospace";
+                ctx.fillText("สกัดสารได้: " + score + " mL", canvas.width / 2, canvas.height / 2 + 20);
             }
 
-            // วาดหน้าแรกก่อนกดเริ่มเล่น
-            ctx.fillStyle = "#fbf8cc";
-            ctx.font = "16px 'Segoe UI', sans-serif";
+            // วาดหน้าแรกก่อนกดเริ่ม
+            ctx.fillStyle = "#10b981";
+            ctx.font = "14px 'Courier New', monospace";
             ctx.textAlign = "center";
-            ctx.fillText("กดปุ่มด้านบนเพื่อเริ่มเล่น", canvas.width / 2, canvas.height / 2);
+            ctx.fillText("กดปุ่มเพื่อเริ่มการสกัดสาร", canvas.width / 2, canvas.height / 2);
         </script>
 
     </body>
@@ -377,7 +389,7 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     console.error("Database or Server Error:", err);
     res.statusCode = 500;
-    res.end(`<h1>เกิดข้อผิดพลาด!</h1><p>${err.message}</p>`);
+    res.end(`<h1>เกิดข้อผิดพลาดในการทดลอง!</h1><p>${err.message}</p>`);
   } finally {
     if (client) {
       client.release();
@@ -386,5 +398,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, () => {
-  console.log(`Server is running on port: ${port}`);
+  console.log(`Kingdom of Science Server is running on port: ${port}`);
 });
