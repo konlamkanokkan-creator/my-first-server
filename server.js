@@ -376,4 +376,11 @@ const server = http.createServer(async (req, res) => {
       }));
 
       const recentSalesRowsHtml = recentSalesRes.rows.length > 0
-        ? recentSalesRes.rows.map(
+        ? recentSalesRes.rows.map(log => `
+            <tr>
+              <td><strong>${escapeHtml(log.product_name)}</strong></td>
+              <td>${Number(log.sold_qty)} ชิ้น</td>
+              <td>฿${Number(log.total_amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+              <td class="muted-cell">${escapeHtml(new Date(log.sold_at).toLocaleString('th-TH'))}</td>
+            </tr>`).join('')
+        : '<tr><td colspan="4" style="text-align:center; padding
