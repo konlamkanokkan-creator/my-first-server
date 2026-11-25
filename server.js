@@ -38,7 +38,7 @@ const server = http.createServer(async (req, res) => {
   try {
     client = await pool.connect();
 
-    // สร้างตารางสินค้าและตารางสรุปยอดขายอัตโนมัติหากยังไม่มี
+    // สร้างตารางสินค้า ตารางสรุปยอดขาย และตารางประวัติการขายออก
     await client.query(`
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
@@ -59,13 +59,25 @@ const server = http.createServer(async (req, res) => {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales_logs (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER,
+        product_code VARCHAR(50),
+        product_name VARCHAR(255) NOT NULL,
+        sold_qty INTEGER NOT NULL,
+        unit_price DECIMAL(10, 2) NOT NULL,
+        total_amount DECIMAL(12, 2) NOT NULL,
+        sold_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     const salesInit = await client.query('SELECT * FROM sales_summary ORDER BY id ASC LIMIT 1');
     if (salesInit.rows.length === 0) {
       await client.query('INSERT INTO sales_summary (total_revenue, total_orders) VALUES (0, 0)');
     }
 
     // ==================== API Routes: สินค้า ====================
-    // GET: แสดงสินค้าทั้งหมด
     if (pathname === '/api/products' && req.method === 'GET') {
       const result = await client.query('SELECT * FROM products ORDER BY id ASC');
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -73,7 +85,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST: เพิ่มสินค้าใหม่
     if (pathname === '/api/products' && req.method === 'POST') {
       try {
         const data = await readJsonBody(req);
@@ -103,7 +114,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // PUT: แก้ไขข้อมูลสินค้า
     if (pathname === '/api/products' && req.method === 'PUT') {
       try {
         const data = await readJsonBody(req);
@@ -140,7 +150,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // DELETE: ลบสินค้า
     if (pathname === '/api/products' && req.method === 'DELETE') {
       const id = query.id;
       if (!id) {
@@ -162,53 +171,71 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // POST: บันทึกการขายสินค้า (ตัดสต็อก + เพิ่มยอดขายรวม)
+    // ==================== API Routes: การขายออก ====================
     if (pathname === '/api/sales' && req.method === 'POST') {
       try {
         const data = await readJsonBody(req);
         const id = parseInt(data.id, 10);
-        const sellQty = parseInt(data.sellQty || 1, 10);
+        const sellQty = parseInt(data.sellQty, 10);
 
         if (!id || Number.isNaN(sellQty) || sellQty <= 0) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ error: 'ระบุจำนวนที่ต้องการขายไม่ถูกต้อง' }));
+          res.end(JSON.stringify({ error: 'กรุณาระบุจำนวนที่ต้องการขายให้ถูกต้อง' }));
           return;
         }
 
+        await client.query('BEGIN');
+
         const prodRes = await client.query('SELECT * FROM products WHERE id = $1', [id]);
         if (prodRes.rows.length === 0) {
+          await client.query('ROLLBACK');
           res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ error: 'ไม่พบสินค้า' }));
+          res.end(JSON.stringify({ error: 'ไม่พบสินค้าในระบบ' }));
           return;
         }
 
         const product = prodRes.rows[0];
-        if (product.quantity < sellQty) {
+        if (Number(product.quantity) < sellQty) {
+          await client.query('ROLLBACK');
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ error: 'สินค้าในคลังไม่เพียงพอ (เหลือ ' + product.quantity + ' ชิ้น)' }));
+          res.end(JSON.stringify({ error: `สต็อกไม่พอ (เหลือเพียง \${product.quantity} ชิ้น)` }));
           return;
         }
 
-        const updatedProduct = await client.query(
+        const updatedProductRes = await client.query(
           'UPDATE products SET quantity = quantity - $1 WHERE id = $2 RETURNING *',
           [sellQty, id]
         );
 
-        const revenueAdded = Number(product.price) * sellQty;
+        const unitPrice = Number(product.price);
+        const totalAmount = unitPrice * sellQty;
+
+        await client.query(
+          `INSERT INTO sales_logs (product_id, product_code, product_name, sold_qty, unit_price, total_amount)
+           VALUES (\$1, \$2, \$3, \$4, \$5, \$6)`,
+          [product.id, product.product_code, product.product_name, sellQty, unitPrice, totalAmount]
+        );
+
         const currentSales = await client.query('SELECT * FROM sales_summary ORDER BY id ASC LIMIT 1');
         const salesId = currentSales.rows[0].id;
 
-        const updatedSales = await client.query(
-          'UPDATE sales_summary SET total_revenue = total_revenue + $1, total_orders = total_orders + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-          [revenueAdded, salesId]
+        const updatedSalesRes = await client.query(
+          `UPDATE sales_summary
+           SET total_revenue = total_revenue + \$1, total_orders = total_orders + 1, updated_at = CURRENT_TIMESTAMP
+           WHERE id = \$2 RETURNING *`,
+          [totalAmount, salesId]
         );
+
+        await client.query('COMMIT');
 
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({
-          product: updatedProduct.rows[0],
-          sales: updatedSales.rows[0]
+          product: updatedProductRes.rows[0],
+          sales: updatedSalesRes.rows[0],
+          soldAmount: totalAmount
         }));
       } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
         res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: err.message }));
       }
@@ -220,6 +247,22 @@ const server = http.createServer(async (req, res) => {
       const result = await client.query('SELECT * FROM products ORDER BY id ASC');
       const salesResult = await client.query('SELECT * FROM sales_summary ORDER BY id ASC LIMIT 1');
       const salesData = salesResult.rows[0] || { total_revenue: 0, total_orders: 0 };
+
+      // สรุปยอดขายแยกตามชื่อสินค้าเพื่อนำไปสร้างกราฟ
+      const chartByProductRes = await client.query(`
+        SELECT product_name, SUM(total_amount) AS revenue, SUM(sold_qty) AS units_sold
+        FROM sales_logs
+        GROUP BY product_name
+        ORDER BY revenue DESC
+        LIMIT 8
+      `);
+
+      // ประวัติการขายล่าสุด 8 รายการ
+      const recentSalesRes = await client.query(`
+        SELECT * FROM sales_logs
+        ORDER BY sold_at DESC, id DESC
+        LIMIT 8
+      `);
 
       const totalSkus = result.rows.length;
       const totalStockValue = result.rows.reduce(
@@ -235,13 +278,12 @@ const server = http.createServer(async (req, res) => {
         let statusBadge = '<span class="badge badge-ok">พร้อมขาย</span>';
         let stockFilterAttr = 'ok';
         let barColor = '#2563eb';
-        let barWidth = Math.min(100, Math.max(8, (qty / 50) * 100));
+        const barWidth = Math.min(100, Math.max(8, (qty / 50) * 100));
 
         if (qty <= 0) {
           statusBadge = '<span class="badge badge-out">หมดสต็อก</span>';
           stockFilterAttr = 'out';
           barColor = '#dc2626';
-          barWidth = 0;
         } else if (qty <= 5) {
           statusBadge = '<span class="badge badge-low">ใกล้หมด</span>';
           stockFilterAttr = 'low';
@@ -254,23 +296,23 @@ const server = http.createServer(async (req, res) => {
 
         rowsHtml += `
           <tr class="product-row" data-status="${stockFilterAttr}" data-search="${(row.product_code + ' ' + row.product_name + ' ' + (row.category || '')).toLowerCase()}">
-            <td>${row.product_code}</td>
-            <td><strong>${row.product_name}</strong></td>
-            <td>${row.category || 'ทั่วไป'}</td>
+            <td>\${row.product_code}</td>
+            <td><strong>\${row.product_name}</strong></td>
+            <td>\${row.category || 'ทั่วไป'}</td>
             <td>
               <div class="stock-cell">
                 <div class="progress-track">
-                  <div class="progress-fill" style="width:${barWidth}%; background:${barColor};"></div>
+                  <div class="progress-fill" style="width:${qty <= 0 ? 0 : barWidth}\%; background:${barColor};"></div>
                 </div>
-                <span>${qty} ชิ้น</span>
+                <span>\${qty} ชิ้น</span>
               </div>
             </td>
-            <td>฿${Number(row.price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-            <td>${statusBadge}</td>
-            <td>
-              <button class="btn btn-sell" onclick="sellProduct(${row.id}, '${safeName}')" ${qty <= 0 ? 'disabled' : ''}>ขาย -1</button>
-              <button class="btn btn-edit" onclick="openEditModal(${row.id}, '${safeCode}', '${safeName}', '${safeCat}', ${qty}, ${row.price})">แก้ไข</button>
-              <button class="btn btn-delete" onclick="deleteProduct(${row.id})">ลบ</button>
+            <td>฿\${Number(row.price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+            <td>\${statusBadge}</td>
+            <td class="actions-col">
+              <button class="btn btn-sell" onclick="openSellModal(${row.id}, '${safeCode}', '${safeName}',${qty}, ${Number(row.price)})" ${qty <= 0 ? 'disabled' : ''}>ขายออก</button>
+              <button class="btn btn-edit" onclick="openEditModal(${row.id}, '${safeCode}', '${safeName}', '${safeCat}', ${qty},${row.price})">แก้ไข</button>
+              <button class="btn btn-delete" onclick="deleteProduct(\${row.id})">ลบ</button>
             </td>
           </tr>`;
       });
@@ -292,9 +334,9 @@ const server = http.createServer(async (req, res) => {
              <div class="alert-icon">⚠️</div>
              <div class="alert-content">
                <div class="alert-title">แจ้งเตือนสถานะคลังสินค้า</div>
-               <div>${alertMessages.join('<br>')}</div>
+               <div>\${alertMessages.join('<br>')}</div>
              </div>
-             <button class="btn btn-outline-light" onclick="filterTable('low')">ดูใกล้หมด</button>
+             <button class="btn btn-outline-warning" onclick="filterTable('low')">ดูใกล้หมด</button>
            </div>`
         : `<div class="alert-banner alert-info">
              <div class="alert-icon">✓</div>
@@ -302,6 +344,22 @@ const server = http.createServer(async (req, res) => {
                <strong>สถานะคลังสินค้าปกติ:</strong> ไม่มีรายการสินค้าที่หมดสต็อกหรือใกล้หมดในขณะนี้
              </div>
            </div>`;
+
+      const chartItems = chartByProductRes.rows.map(r => ({
+        name: r.product_name,
+        revenue: Number(r.revenue || 0),
+        units: Number(r.units_sold || 0)
+      }));
+
+      const recentSalesRowsHtml = recentSalesRes.rows.length > 0
+        ? recentSalesRes.rows.map(log => `
+            <tr>
+              <td><strong>\${log.product_name}</strong></td>
+              <td>\${log.sold_qty} ชิ้น</td>
+              <td>฿\${Number(log.total_amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+              <td class="muted-cell">\${new Date(log.sold_at).toLocaleString('th-TH')}</td>
+            </tr>`).join('')
+        : '<tr><td colspan="4" style="text-align:center; padding:18px; color:#64748b;">ยังไม่มีประวัติการขายออก</td></tr>';
 
       const html = `
       <!DOCTYPE html>
@@ -336,7 +394,6 @@ const server = http.createServer(async (req, res) => {
                   min-height: 100vh;
               }
 
-              /* แถบเมนูด้านข้างโทนน้ำเงินทางการ */
               .sidebar {
                   width: 240px;
                   background: linear-gradient(180deg, var(--navy-dark) 0%, var(--navy-mid) 100%);
@@ -353,673 +410,4 @@ const server = http.createServer(async (req, res) => {
                   font-weight: 700;
                   padding: 8px 12px 20px;
                   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-                  margin-bottom: 8px;
-                  letter-spacing: 0.3px;
-              }
-
-              .brand span {
-                  display: block;
-                  font-size: 0.78rem;
-                  font-weight: 400;
-                  color: #93c5fd;
-                  margin-top: 4px;
-              }
-
-              .nav-item {
-                  padding: 11px 14px;
-                  border-radius: 8px;
-                  color: #dbeafe;
-                  text-decoration: none;
-                  font-size: 0.95rem;
-                  display: block;
-                  cursor: pointer;
-              }
-
-              .nav-item.active, .nav-item:hover {
-                  background: rgba(255, 255, 255, 0.16);
-                  color: #ffffff;
-                  font-weight: 600;
-              }
-
-              /* พื้นที่เนื้อหาหลัก */
-              .main-content {
-                  flex: 1;
-                  padding: 28px 32px;
-                  max-width: 1280px;
-                  margin: 0 auto;
-                  width: 100%;
-              }
-
-              .top-header {
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                  flex-wrap: wrap;
-                  gap: 16px;
-                  margin-bottom: 20px;
-              }
-
-              .top-header h1 {
-                  margin: 0;
-                  font-size: 1.55rem;
-                  color: var(--navy-dark);
-              }
-
-              .top-header p {
-                  margin: 4px 0 0;
-                  color: var(--text-muted);
-                  font-size: 0.9rem;
-              }
-
-              /* การ์ดสรุปยอดขายและสต็อก */
-              .kpi-grid {
-                  display: grid;
-                  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-                  gap: 16px;
-                  margin-bottom: 20px;
-              }
-
-              .kpi-card {
-                  background: var(--surface);
-                  border: 1px solid var(--border-light);
-                  border-top: 4px solid var(--blue-primary);
-                  border-radius: 10px;
-                  padding: 18px 20px;
-                  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-              }
-
-              .kpi-card.sales-card {
-                  background: linear-gradient(135deg, var(--navy-dark) 0%, var(--blue-primary) 100%);
-                  color: #ffffff;
-                  border-top-color: #60a5fa;
-              }
-
-              .kpi-label {
-                  font-size: 0.85rem;
-                  color: var(--text-muted);
-                  margin-bottom: 8px;
-              }
-
-              .sales-card .kpi-label {
-                  color: #bfdbfe;
-              }
-
-              .kpi-value {
-                  font-size: 1.55rem;
-                  font-weight: 700;
-              }
-
-              .kpi-sub {
-                  font-size: 0.8rem;
-                  color: var(--text-muted);
-                  margin-top: 6px;
-              }
-
-              .sales-card .kpi-sub {
-                  color: #dbeafe;
-              }
-
-              /* แถบแจ้งเตือน */
-              .alert-banner {
-                  display: flex;
-                  align-items: center;
-                  gap: 14px;
-                  background: #fffbeb;
-                  border: 1px solid #fcd34d;
-                  border-left: 5px solid #d97706;
-                  color: #78350f;
-                  padding: 14px 18px;
-                  border-radius: 10px;
-                  margin-bottom: 22px;
-              }
-
-              .alert-banner.alert-info {
-                  background: var(--blue-soft);
-                  border-color: var(--blue-border);
-                  border-left-color: var(--blue-primary);
-                  color: var(--navy-dark);
-              }
-
-              .alert-icon {
-                  font-size: 1.3rem;
-                  font-weight: bold;
-              }
-
-              .alert-content {
-                  flex: 1;
-                  font-size: 0.92rem;
-                  line-height: 1.5;
-              }
-
-              .alert-title {
-                  font-weight: 700;
-                  margin-bottom: 2px;
-              }
-
-              /* กล่องตารางและตัวกรอง */
-              .card-panel {
-                  background: var(--surface);
-                  border: 1px solid var(--border-light);
-                  border-radius: 10px;
-                  padding: 20px;
-                  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-              }
-
-              .toolbar {
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 10px;
-                  justify-content: space-between;
-                  align-items: center;
-                  margin-bottom: 16px;
-              }
-
-              .search-input {
-                  flex: 1;
-                  min-width: 240px;
-                  padding: 10px 14px;
-                  border: 1px solid #cbd5e1;
-                  border-radius: 8px;
-                  font-size: 0.95rem;
-              }
-
-              .search-input:focus {
-                  outline: none;
-                  border-color: var(--blue-primary);
-                  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
-              }
-
-              .filter-group {
-                  display: flex;
-                  gap: 8px;
-                  flex-wrap: wrap;
-              }
-
-              .btn {
-                  border: none;
-                  border-radius: 8px;
-                  padding: 9px 14px;
-                  font-size: 0.9rem;
-                  font-weight: 600;
-                  cursor: pointer;
-                  transition: background 0.15s ease;
-              }
-
-              .btn-primary {
-                  background: var(--blue-primary);
-                  color: #ffffff;
-              }
-
-              .btn-primary:hover {
-                  background: var(--blue-hover);
-              }
-
-              .btn-filter {
-                  background: var(--blue-soft);
-                  color: var(--navy-dark);
-                  border: 1px solid var(--blue-border);
-              }
-
-              .btn-filter.active {
-                  background: var(--blue-primary);
-                  color: #ffffff;
-                  border-color: var(--blue-primary);
-              }
-
-              .btn-outline-light {
-                  background: #ffffff;
-                  color: #92400e;
-                  border: 1px solid #f59e0b;
-                  padding: 7px 12px;
-                  font-size: 0.85rem;
-              }
-
-              .btn-sell {
-                  background: #0284c7;
-                  color: #ffffff;
-                  padding: 6px 10px;
-                  font-size: 0.82rem;
-              }
-
-              .btn-sell:hover:not(:disabled) {
-                  background: #0369a1;
-              }
-
-              .btn-sell:disabled {
-                  opacity: 0.4;
-                  cursor: not-allowed;
-              }
-
-              .btn-edit {
-                  background: #e0f2fe;
-                  color: #0369a1;
-                  padding: 6px 10px;
-                  font-size: 0.82rem;
-              }
-
-              .btn-delete {
-                  background: #fee2e2;
-                  color: #b91c1c;
-                  padding: 6px 10px;
-                  font-size: 0.82rem;
-              }
-
-              .btn-secondary {
-                  background: #e2e8f0;
-                  color: #334155;
-              }
-
-              table {
-                  width: 100%;
-                  border-collapse: collapse;
-                  font-size: 0.92rem;
-              }
-
-              th {
-                  background: #f8fafc;
-                  color: var(--navy-dark);
-                  font-weight: 700;
-                  text-align: left;
-                  padding: 12px;
-                  border-bottom: 2px solid var(--border-light);
-              }
-
-              td {
-                  padding: 12px;
-                  border-bottom: 1px solid var(--border-light);
-                  vertical-align: middle;
-              }
-
-              tr:hover td {
-                  background: #f8fbff;
-              }
-
-              .stock-cell {
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-              }
-
-              .progress-track {
-                  width: 90px;
-                  height: 8px;
-                  background: #e2e8f0;
-                  border-radius: 999px;
-                  overflow: hidden;
-              }
-
-              .progress-fill {
-                  height: 100%;
-                  border-radius: 999px;
-              }
-
-              .badge {
-                  padding: 4px 10px;
-                  border-radius: 999px;
-                  font-size: 0.78rem;
-                  font-weight: 700;
-                  display: inline-block;
-              }
-
-              .badge-ok { background: #dbeafe; color: #1d4ed8; }
-              .badge-low { background: #fef3c7; color: #b45309; }
-              .badge-out { background: #fee2e2; color: #b91c1c; }
-
-              .status-toast {
-                  padding: 12px 16px;
-                  border-radius: 8px;
-                  margin-bottom: 14px;
-                  font-size: 0.9rem;
-                  display: none;
-              }
-
-              .status-toast.success {
-                  display: block;
-                  background: #dbeafe;
-                  color: #1e3a8a;
-                  border: 1px solid #93c5fd;
-              }
-
-              .status-toast.error {
-                  display: block;
-                  background: #fee2e2;
-                  color: #991b1b;
-                  border: 1px solid #fca5a5;
-              }
-
-              /* Modal */
-              .modal {
-                  display: none;
-                  position: fixed;
-                  z-index: 1000;
-                  inset: 0;
-                  background: rgba(15, 23, 42, 0.55);
-                  align-items: center;
-                  justify-content: center;
-                  padding: 16px;
-              }
-
-              .modal.open {
-                  display: flex;
-              }
-
-              .modal-content {
-                  background: #ffffff;
-                  border-radius: 12px;
-                  width: 100%;
-                  max-width: 460px;
-                  padding: 24px;
-                  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
-              }
-
-              .modal-header {
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                  margin-bottom: 16px;
-              }
-
-              .modal-header h2 {
-                  margin: 0;
-                  font-size: 1.2rem;
-                  color: var(--navy-dark);
-              }
-
-              .close-btn {
-                  background: none;
-                  border: none;
-                  font-size: 1.5rem;
-                  cursor: pointer;
-                  color: var(--text-muted);
-              }
-
-              .form-group {
-                  margin-bottom: 14px;
-              }
-
-              .form-group label {
-                  display: block;
-                  font-size: 0.88rem;
-                  font-weight: 600;
-                  margin-bottom: 6px;
-                  color: var(--navy-dark);
-              }
-
-              .form-group input {
-                  width: 100%;
-                  padding: 10px 12px;
-                  border: 1px solid #cbd5e1;
-                  border-radius: 8px;
-                  font-size: 0.95rem;
-              }
-
-              .modal-actions {
-                  display: flex;
-                  justify-content: flex-end;
-                  gap: 10px;
-                  margin-top: 18px;
-              }
-
-              @media (max-width: 768px) {
-                  body { flex-direction: column; }
-                  .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 12px; }
-                  .brand { border-bottom: none; margin-bottom: 0; padding: 6px 10px; }
-                  .main-content { padding: 18px 14px; }
-              }
-          </style>
-      </head>
-      <body>
-          <aside class="sidebar">
-              <div class="brand">
-                  คลังสินค้าและยอดขาย
-                  <span>ระบบจัดการร้านค้า</span>
-              </div>
-              <a class="nav-item active" onclick="filterTable('all')">ภาพรวมคลังและยอดขาย</a>
-              <a class="nav-item" onclick="filterTable('low')">รายการใกล้หมด</a>
-              <a class="nav-item" onclick="filterTable('out')">รายการหมดสต็อก</a>
-          </aside>
-
-          <main class="main-content">
-              <div class="top-header">
-                  <div>
-                      <h1>บอร์ดสรุปยอดขายและคลังสินค้า</h1>
-                      <p>ติดตามยอดขายสะสม มูลค่าสินค้าคงเหลือ และการแจ้งเตือนสต็อกแบบเรียลไทม์</p>
-                  </div>
-                  <button class="btn btn-primary" onclick="openAddModal()">+ เพิ่มสินค้าใหม่</button>
-              </div>
-
-              <!-- บอร์ดสรุปยอดขายและสต็อก -->
-              <section class="kpi-grid">
-                  <div class="kpi-card sales-card">
-                      <div class="kpi-label">ยอดขายสะสมทั้งหมด</div>
-                      <div class="kpi-value">฿${Number(salesData.total_revenue || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</div>
-                      <div class="kpi-sub">บันทึกรายการขายแล้ว ${Number(salesData.total_orders || 0).toLocaleString('th-TH')} ครั้ง</div>
-                  </div>
-                  <div class="kpi-card">
-                      <div class="kpi-label">มูลค่าสต็อกคงเหลือ</div>
-                      <div class="kpi-value">฿${totalStockValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</div>
-                      <div class="kpi-sub">คำนวณจากจำนวนคงเหลือ × ราคาต่อหน่วย</div>
-                  </div>
-                  <div class="kpi-card">
-                      <div class="kpi-label">สินค้าทั้งหมด (รายการ)</div>
-                      <div class="kpi-value">${totalSkus}</div>
-                      <div class="kpi-sub">ใกล้หมด ${lowStockItems.length} รายการ | หมดสต็อก ${outOfStockItems.length} รายการ</div>
-                  </div>
-              </section>
-
-              <!-- แถบแจ้งเตือน -->
-              ${alertBannerHtml}
-
-              <div id="statusToast" class="status-toast"></div>
-
-              <!-- ตารางสินค้า -->
-              <section class="card-panel">
-                  <div class="toolbar">
-                      <input type="text" id="searchInput" class="search-input" placeholder="ค้นหารหัสสินค้า ชื่อสินค้า หรือหมวดหมู่..." oninput="applyFilters()">
-                      <div class="filter-group">
-                          <button class="btn btn-filter active" data-filter="all" onclick="filterTable('all')">ทั้งหมด (${totalSkus})</button>
-                          <button class="btn btn-filter" data-filter="low" onclick="filterTable('low')">ใกล้หมด (${lowStockItems.length})</button>
-                          <button class="btn btn-filter" data-filter="out" onclick="filterTable('out')">หมดสต็อก (${outOfStockItems.length})</button>
-                      </div>
-                  </div>
-
-                  <div style="overflow-x:auto;">
-                      <table>
-                          <thead>
-                              <tr>
-                                  <th>รหัสสินค้า</th>
-                                  <th>ชื่อสินค้า</th>
-                                  <th>หมวดหมู่</th>
-                                  <th>คงเหลือ</th>
-                                  <th>ราคา/หน่วย</th>
-                                  <th>สถานะ</th>
-                                  <th>จัดการ</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                              ${rowsHtml || '<tr><td colspan="7" style="text-align:center; padding:24px; color:#64748b;">ยังไม่มีข้อมูลสินค้าในระบบ กดปุ่ม "+ เพิ่มสินค้าใหม่" เพื่อเริ่มต้น</td></tr>'}
-                          </tbody>
-                      </table>
-                  </div>
-              </section>
-          </main>
-
-          <!-- Modal เพิ่ม / แก้ไขสินค้า -->
-          <div id="productModal" class="modal">
-              <div class="modal-content">
-                  <div class="modal-header">
-                      <h2 id="modalTitle">เพิ่มสินค้าใหม่</h2>
-                      <button class="close-btn" onclick="closeModal()">&times;</button>
-                  </div>
-                  <div id="modalToast" class="status-toast"></div>
-                  <form id="productForm">
-                      <input type="hidden" id="productDbId">
-                      <div class="form-group">
-                          <label for="productCodeInput">รหัสสินค้า</label>
-                          <input type="text" id="productCodeInput" placeholder="เช่น PRD-001" required>
-                      </div>
-                      <div class="form-group">
-                          <label for="productNameInput">ชื่อสินค้า</label>
-                          <input type="text" id="productNameInput" placeholder="เช่น น้ำดื่มแพ็ก 12" required>
-                      </div>
-                      <div class="form-group">
-                          <label for="categoryInput">หมวดหมู่</label>
-                          <input type="text" id="categoryInput" placeholder="เช่น เครื่องดื่ม" value="ทั่วไป" required>
-                      </div>
-                      <div class="form-group">
-                          <label for="quantityInput">จำนวนคงเหลือ (ชิ้น)</label>
-                          <input type="number" id="quantityInput" min="0" value="0" required>
-                      </div>
-                      <div class="form-group">
-                          <label for="priceInput">ราคาต่อหน่วย (บาท)</label>
-                          <input type="number" id="priceInput" min="0" step="0.01" value="0.00" required>
-                      </div>
-                      <div class="modal-actions">
-                          <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
-                          <button type="button" class="btn btn-primary" onclick="saveProduct()">บันทึกข้อมูล</button>
-                      </div>
-                  </form>
-              </div>
-          </div>
-
-          <script>
-              let currentFilter = 'all';
-              const modal = document.getElementById('productModal');
-
-              function showToast(message, type = 'success') {
-                  const toast = document.getElementById('statusToast');
-                  toast.className = 'status-toast ' + type;
-                  toast.innerText = message;
-              }
-
-              function filterTable(filterType) {
-                  currentFilter = filterType;
-                  document.querySelectorAll('.btn-filter').forEach(btn => {
-                      btn.classList.toggle('active', btn.dataset.filter === filterType);
-                  });
-                  applyFilters();
-              }
-
-              function applyFilters() {
-                  const keyword = (document.getElementById('searchInput').value || '').trim().toLowerCase();
-                  document.querySelectorAll('.product-row').forEach(row => {
-                      const status = row.dataset.status;
-                      const searchText = row.dataset.search || '';
-                      const matchesFilter = currentFilter === 'all' || status === currentFilter;
-                      const matchesSearch = !keyword || searchText.includes(keyword);
-                      row.style.display = (matchesFilter && matchesSearch) ? '' : 'none';
-                  });
-              }
-
-              function openAddModal() {
-                  document.getElementById('modalTitle').innerText = 'เพิ่มสินค้าใหม่';
-                  document.getElementById('productForm').reset();
-                  document.getElementById('productDbId').value = '';
-                  document.getElementById('categoryInput').value = 'ทั่วไป';
-                  document.getElementById('modalToast').className = 'status-toast';
-                  modal.classList.add('open');
-              }
-
-              function openEditModal(id, code, name, category, quantity, price) {
-                  document.getElementById('modalTitle').innerText = 'แก้ไขข้อมูลสินค้า';
-                  document.getElementById('productDbId').value = id;
-                  document.getElementById('productCodeInput').value = code;
-                  document.getElementById('productNameInput').value = name;
-                  document.getElementById('categoryInput').value = category;
-                  document.getElementById('quantityInput').value = quantity;
-                  document.getElementById('priceInput').value = price;
-                  document.getElementById('modalToast').className = 'status-toast';
-                  modal.classList.add('open');
-              }
-
-              function closeModal() {
-                  modal.classList.remove('open');
-              }
-
-              async function saveProduct() {
-                  const id = document.getElementById('productDbId').value;
-                  const product_code = document.getElementById('productCodeInput').value.trim();
-                  const product_name = document.getElementById('productNameInput').value.trim();
-                  const category = document.getElementById('categoryInput').value.trim() || 'ทั่วไป';
-                  const quantity = parseInt(document.getElementById('quantityInput').value, 10);
-                  const price = parseFloat(document.getElementById('priceInput').value);
-                  const modalToast = document.getElementById('modalToast');
-
-                  if (!product_code || !product_name || Number.isNaN(quantity) || Number.isNaN(price)) {
-                      modalToast.className = 'status-toast error';
-                      modalToast.innerText = 'กรุณากรอกข้อมูลให้ครบถ้วน';
-                      return;
-                  }
-
-                  const payload = { product_code, product_name, category, quantity, price };
-                  if (id) payload.id = parseInt(id, 10);
-
-                  const res = await fetch('/api/products', {
-                      method: id ? 'PUT' : 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(payload)
-                  });
-                  const data = await res.json();
-
-                  if (!res.ok) {
-                      modalToast.className = 'status-toast error';
-                      modalToast.innerText = data.error || 'เกิดข้อผิดพลาด';
-                      return;
-                  }
-
-                  modalToast.className = 'status-toast success';
-                  modalToast.innerText = 'บันทึกข้อมูลสำเร็จ';
-                  setTimeout(() => location.reload(), 600);
-              }
-
-              async function sellProduct(id, name) {
-                  const res = await fetch('/api/sales', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ id, sellQty: 1 })
-                  });
-                  const data = await res.json();
-
-                  if (!res.ok) {
-                      showToast(data.error || 'บันทึกการขายไม่สำเร็จ', 'error');
-                      return;
-                  }
-
-                  showToast('บันทึกการขาย "' + name + '" จำนวน 1 ชิ้นเรียบร้อยแล้ว', 'success');
-                  setTimeout(() => location.reload(), 500);
-              }
-
-              async function deleteProduct(id) {
-                  if (!confirm('ยืนยันการลบสินค้านี้?')) return;
-                  const res = await fetch('/api/products?id=' + id, { method: 'DELETE' });
-                  const data = await res.json();
-                  if (!res.ok) {
-                      showToast(data.error || 'ลบสินค้าไม่สำเร็จ', 'error');
-                      return;
-                  }
-                  showToast('ลบสินค้าเรียบร้อยแล้ว', 'success');
-                  setTimeout(() => location.reload(), 500);
-              }
-          </script>
-      </body>
-      </html>`;
-
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(html);
-      return;
-    }
-
-    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end('<h1>404 - ไม่พบหน้านี้</h1>');
-  } catch (err) {
-    console.error('Database or Server Error:', err);
-    res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end('<h1>เกิดข้อผิดพลาดในระบบ</h1><p>' + err.message + '</p>');
-  } finally {
-    if (client) client.release();
-  }
-});
-
-server.listen(port, () => {
-  console.log('Server running on port:', port);
-});
+                  margin
